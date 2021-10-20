@@ -1,0 +1,9 @@
+NODES 2
+label x y
+0_node 0.0 0.0
+1_node 0.0 0.0
+
+EDGES 2
+label src dest weight bw delay
+edge_0 0 1 2 50000 17
+edge_1 1 0 1 50000 17
