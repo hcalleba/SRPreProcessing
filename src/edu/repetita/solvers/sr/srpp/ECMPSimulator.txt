@@ -1,0 +1,23 @@
+The following code seems to be a much faster ECMP simulator than the one originally used in repetita.
+
+Assuming setting is available :
+
+
+// Supposed faster way
+Topology topology = setting.getTopology();
+int nEdges = topology.nEdges;
+Demands demands = setting.getDemands();
+
+float[][][] arcLoadPerPair = makeArcLoadPerPair(topology);
+
+float[] arcLoads = new float[nEdges];
+for (int i = 0; i < demands.nDemands; i++) {
+    for (int j = 0; j < nEdges; j++) {
+        arcLoads[j] += arcLoadPerPair[demands.dest[i]][demands.source[i]][j] * demands.amount[i];
+    }
+}
+
+// Original long way
+ECMPFlowSimulator flowsim = new ECMPFlowSimulator();
+flowsim.setup(setting);
+flowsim.computeFlows();

@@ -44,6 +44,13 @@ public class SRPP extends SRSolver {
 
         float[][][] arcLoadPerPair = makeArcLoadPerPair(topology);
 
+        float[] arcLoads = new float[nEdges];
+        for (int i = 0; i < demands.nDemands; i++) {
+            for (int j = 0; j < nEdges; j++) {
+                arcLoads[j] += arcLoadPerPair[demands.dest[i]][demands.source[i]][j] * demands.amount[i];
+            }
+        }
+
     }
 
     @Override
