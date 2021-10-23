@@ -8,12 +8,12 @@ Topology topology = setting.getTopology();
 int nEdges = topology.nEdges;
 Demands demands = setting.getDemands();
 
-float[][][] arcLoadPerPair = makeArcLoadPerPair(topology);
+float[][][] edgeLoadPerPair = makeedgeLoadPerPair(topology);
 
-float[] arcLoads = new float[nEdges];
+float[] edgeLoads = new float[nEdges];
 for (int i = 0; i < demands.nDemands; i++) {
     for (int j = 0; j < nEdges; j++) {
-        arcLoads[j] += arcLoadPerPair[demands.dest[i]][demands.source[i]][j] * demands.amount[i];
+        edgeLoads[j] += edgeLoadPerPair[demands.dest[i]][demands.source[i]][j] * demands.amount[i];
     }
 }
 
@@ -21,3 +21,18 @@ for (int i = 0; i < demands.nDemands; i++) {
 ECMPFlowSimulator flowsim = new ECMPFlowSimulator();
 flowsim.setup(setting);
 flowsim.computeFlows();
+
+
+Problem of floating point precision e.g.
+public class HelloWorld{
+
+     public static void main(String []args){
+        float a = 1.0f/3;
+        float b = 1.0f/3;
+        b = b/3;
+        b = b/3;
+        b = b+b+b+b+b+b+b+b+b;
+        System.out.println(b);
+        System.out.println(a==b);
+     }
+}

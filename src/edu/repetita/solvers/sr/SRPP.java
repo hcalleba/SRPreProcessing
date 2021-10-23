@@ -4,14 +4,18 @@ import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
-import edu.repetita.simulators.specialized.ECMPFlowSimulator;
 import edu.repetita.solvers.SRSolver;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
+import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
 
 import java.util.Arrays;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
 
+/**
+ * Solver that implements preprocessing techniques to eliminate dominated paths in Segment Routing.
+ * It then sends this smaller set of paths to an ILP solver that will solve it optimally.
+ */
 public class SRPP extends SRSolver {
 
     private long solveTime = 0;
@@ -42,15 +46,10 @@ public class SRPP extends SRSolver {
         Demands demands = setting.getDemands();
         int maxSegments = setting.getMaxSegments();
 
-        float[][][] arcLoadPerPair = makeArcLoadPerPair(topology);
-
-        float[] arcLoads = new float[nEdges];
-        for (int i = 0; i < demands.nDemands; i++) {
-            for (int j = 0; j < nEdges; j++) {
-                arcLoads[j] += arcLoadPerPair[demands.dest[i]][demands.source[i]][j] * demands.amount[i];
-            }
-        }
-
+        float[][][] edgeLoadPerPair = makeEdgeLoadPerPair(topology);
+        SegmentTreeRoot root = new SegmentTreeRoot(nNodes, nEdges, maxSegments, edgeLoadPerPair);
+        root.createODPaths();
+        // int[][] ODPaths = root.getODPaths();
     }
 
     @Override
@@ -59,17 +58,17 @@ public class SRPP extends SRSolver {
     }
 
     /**
-     * Creates the array arcLoadPair[|N|][|N|][|A|]
+     * Creates the array edgeLoadPair[|N|][|N|][|A|]
      * For each triplet (U,V,a); U,V nodes and a an edge;
-     * arcLoadPerPair[U][V][a] is the load on arc a when there is a demand of 1 from V to U.
+     * edgeLoadPerPair[U][V][a] is the load on edge a when there is a demand of 1 from V to U.
      * @param topology the topology of the network
-     * @return arcLoadPair[][][] as explained above
+     * @return edgeLoadPair[][][] as explained above
      */
-    public static float[][][] makeArcLoadPerPair(Topology topology) {
+    public static float[][][] makeEdgeLoadPerPair(Topology topology) {
 
         int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
-        float[][][] arcLoadPerPair = new float[nNodes][nNodes][nEdges];
+        float[][][] edgeLoadPerPair = new float[nNodes][nNodes][nEdges];
 
         // Compute the shortest paths in the graph, from there we get the forwarding graph of each node
         ShortestPaths sp = new ShortestPaths(topology);
@@ -84,35 +83,35 @@ public class SRPP extends SRSolver {
             }
             Arrays.sort(nodesSortedByDistance);
 
-            // Starting from the closest node origin we will now fill arcLoadPerPair[dest][origin][] for all arcs
+            // Starting from the closest node origin we will now fill edgeLoadPerPair[dest][origin][] for all edges
             for (int i = 1; i < nNodes; i++) {
                 int origin = nodesSortedByDistance[i].index;
-                fillArcUsage(dest, origin, arcLoadPerPair[dest], sp, nEdges);
+                fillEdgeUsage(dest, origin, edgeLoadPerPair[dest], sp, nEdges);
             }
         }
-        return arcLoadPerPair;
+        return edgeLoadPerPair;
     }
 
     /**
-     * Simulates a demand of one from origin to dest and stores the load in arcLoadDest.
+     * Simulates a demand of one from origin to dest and stores the load in edgeLoadDest.
      * The loads for all nodes where the distance to dest is smaller the distance origin-dest should already be computed
      * as it makes use of these loads to compute the new origin-dest load.
      * @param dest The destination node
      * @param origin The origin node
-     * @param arcLoadDest The current computed arc loads for the destination node dest.
+     * @param edgeLoadDest The current computed edge loads for the destination node dest.
      *                    It must already be computed for all nodes closer to dest than origin
      */
-    private static void fillArcUsage(int dest, int origin, float[][] arcLoadDest, ShortestPaths sp, int nEdges) {
+    private static void fillEdgeUsage(int dest, int origin, float[][] edgeLoadDest, ShortestPaths sp, int nEdges) {
         int nSuccessors = sp.nSuccessors[dest][origin];
         for (int i = 0; i < nSuccessors; i++) {
             // Add the load on the direct edge to the new node
             int nextEdge = sp.successorEdges[dest][origin][i];
-            arcLoadDest[origin][nextEdge] = 1.0f/nSuccessors;
+            edgeLoadDest[origin][nextEdge] = 1.0f/nSuccessors;
             // Add the load when routing from nextNode to dest
             int nextNode = sp.successorNodes[dest][origin][i];
             if (nextNode != dest) {
                 for (int j = 0; j < nEdges; j++) {
-                    arcLoadDest[origin][j] += 1.0f / nSuccessors * arcLoadDest[nextNode][j];
+                    edgeLoadDest[origin][j] += 1.0f / nSuccessors * edgeLoadDest[nextNode][j];
                 }
             }
         }
