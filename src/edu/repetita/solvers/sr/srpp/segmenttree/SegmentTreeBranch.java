@@ -1,6 +1,7 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
 import java.util.LinkedList;
+import java.util.ListIterator;
 
 /**
  * Branch of the tree containing all non-dominated n-SR paths of a Topology up till n = maxSegments.
@@ -15,12 +16,18 @@ public class SegmentTreeBranch {
     private final SegmentTreeLeaf[] leaves;
     // For each destination node, the list will contain all paths to that node
     private final LinkedList<SegmentTreeLeaf>[] pathsToDestination;
+    // Maximum depth of the SR-paths
+    private int maxDepth;
+    // int pointing to the first element of size maxDepth in pathsToDestination
+    private final int[] firstPathMaxDepth;
 
     public SegmentTreeBranch(SegmentTreeRoot root, int currentNodeNumber, float[][][] edgeLoadPerPair) {
         this.root = root;
         this.currentNodeNumber = currentNodeNumber;
         leaves = new SegmentTreeLeaf[root.nNodes];
         pathsToDestination = new LinkedList[root.nNodes];
+        firstPathMaxDepth = new int[root.nNodes];  // Initialised to 0 which is what we want
+        maxDepth = 1;
 
         // Initialisation of 1-SR (=OSPF) path for each destination node.
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
@@ -52,7 +59,7 @@ public class SegmentTreeBranch {
      * @param leafNumber the number corresponding to the node in the topology.
      * @return The said leaf
      */
-    public SegmentTreeLeaf getLeaf(int leafNumber) {
+    protected SegmentTreeLeaf getLeaf(int leafNumber) {
         return leaves[leafNumber];
     }
 
@@ -82,5 +89,66 @@ public class SegmentTreeBranch {
             nbPaths += pathsToDestination[leafNumber].size();
         }
         return nbPaths;
+    }
+
+    /**
+     * Tests if a path origin destination is with edge loads edgeLoads is dominated by another path already in the tree.
+     * The parameter origin is not needed as it is already part of the branch instance.
+     * @param destination the destination node of the tested path
+     * @param newEdgeLoads the edge loads of the tested path (remember we assume a flow of one is used to compute the loads)
+     * @return true if the path is dominated (or equal to another), false otherwise
+     */
+    public boolean isDominated(int destination, float[] newEdgeLoads) {
+        // TODO boolean newBetterThanOld;
+        // TODO better rounding for floating point imprecision
+        // TODO need to change if I don't want to compare when same size
+        boolean oldBetterThanNew;
+        // Loop over all non-dominated OD paths currently in the tree
+        for ( SegmentTreeLeaf oldPath : pathsToDestination[destination] ) {
+            oldBetterThanNew = true;
+            // If it has 1 edge that is not worse, then it cannot be dominated
+            for (int edgeNumber = 0; edgeNumber < root.nEdges; edgeNumber++) {
+                if (newEdgeLoads[edgeNumber] + 0.00001 < oldPath.edgeLoads[edgeNumber]) {
+                    oldBetterThanNew = false;
+                    break;
+                }
+            }
+            // If the new path is dominated by at least one path we can instantly return
+            if (oldBetterThanNew) {
+                return true;
+            }
+        }
+        // If it was dominated by no path, then it is non-dominated
+        return false;
+    }
+
+    protected void addDepth(int depth) {
+        // TODO when I tryAddChild and it succeeds, I should not try to add a child after the node I just added
+        float[] edgeContainer = new float[root.nEdges];
+        int[] addedPathsPerDest = new int[root.nNodes];
+        // Iterate over all destination nodes
+        for (int destinationNode = 0; destinationNode < root.nNodes; destinationNode++) {
+            // Test if there are SR-paths of size maxDepth
+            if (firstPathMaxDepth[destinationNode] < pathsToDestination[destinationNode].size()) {
+                // iterate over these SR-paths of size maxDepth
+                ListIterator<SegmentTreeLeaf> iterator = pathsToDestination[destinationNode].listIterator(firstPathMaxDepth[destinationNode]);
+                while (iterator.hasNext()) {
+                    // Try to add all possible nodes at the end
+                    SegmentTreeLeaf nextLeaf = iterator.next();
+                    // This is needed otherwise I would try to add nodes after paths created at this iteration of addDepth
+                    if (nextLeaf.depth >= depth) {
+                        break;
+                    }
+                    for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
+                        if (nextLeaf.tryAddChild(lastNode, edgeContainer)) {
+                            addedPathsPerDest[destinationNode]++;
+                        }
+                    }
+                }
+            }
+        }
+        for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
+            firstPathMaxDepth[nodeNumber] += addedPathsPerDest[nodeNumber];
+        }
     }
 }

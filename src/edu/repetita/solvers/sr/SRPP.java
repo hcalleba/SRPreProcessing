@@ -49,7 +49,10 @@ public class SRPP extends SRSolver {
         float[][][] edgeLoadPerPair = makeEdgeLoadPerPair(topology);
         SegmentTreeRoot root = new SegmentTreeRoot(nNodes, nEdges, maxSegments, edgeLoadPerPair);
         root.createODPaths();
+        int[][] allPaths = root.getAllPaths();
         // int[][] ODPaths = root.getODPaths();
+        System.out.println(allPaths);
+        System.out.println("End of SRPP solve function");
     }
 
     @Override

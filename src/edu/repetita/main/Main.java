@@ -144,6 +144,7 @@ public class Main {
                     if (maxSegments < 2) {
                         printHelp("Number of segments should be at least two");
                     }
+                    break;
 
                 default:
                     printHelp("Unknown option " + args[i]);
@@ -155,8 +156,6 @@ public class Main {
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
         if (demandsFilename == null) printHelp("Needs an input demands file");
-
-        System.out.println("This is the end.");
 
         // Set the settings according to command line parameters
         Setting setting = new Setting();
