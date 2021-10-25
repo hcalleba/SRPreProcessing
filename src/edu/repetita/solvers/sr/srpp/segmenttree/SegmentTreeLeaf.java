@@ -66,7 +66,7 @@ public class SegmentTreeLeaf {
         for (int edgeNumber = 0; edgeNumber < branch.root.nEdges; edgeNumber++) {
             edgeLoadContainer[edgeNumber] = edgeLoadsLastSegment[edgeNumber] + this.edgeLoads[edgeNumber];
         }
-        if (branch.isDominated(childNumber, edgeLoadContainer)) {
+        if (branch.isDominated(childNumber, edgeLoadContainer, depth)) {
             return false;
         }
         addChild(childNumber, edgeLoadContainer);
@@ -80,7 +80,7 @@ public class SegmentTreeLeaf {
      * @return an array of int corresponding to the SR path of the current leaf with the origin.
      */
     public int[] getPath() {
-        int length = getPathLength()+1;
+        int length = depth+1;
         // Create the container for the SR path
         int[] path = new int[length];
         // Add origin (branch) node
@@ -96,7 +96,7 @@ public class SegmentTreeLeaf {
      * @return an array of int corresponding to the SR path of the current leaf.
      */
     public int[] getPathNoOrigin() {
-        int length = getPathLength();
+        int length = depth;
         // Create the container for the SR path
         int[] path = new int[length];
         // Fill the path with the nodes inside it
@@ -112,7 +112,7 @@ public class SegmentTreeLeaf {
      * @return the path corresponding to the SR-path of the node + lastNode
      */
     public int[] getTestingPath(int lastNode) {
-        int length = getPathLength()+1;
+        int length = depth+1;
         // Create the container for the SR path
         int[] path = new int[length];
         // Add the last node
@@ -140,22 +140,6 @@ public class SegmentTreeLeaf {
             index--;
         }
         return path;
-    }
-
-    /**
-     * Get the length in node segments of the SR path of the current leaf.
-     * Notice that the origin (branch) is not counted as it is not part of node segments.
-     * @return the number of segment nodes on the SR-path corresponding to the current leaf
-     */
-    private int getPathLength() {
-        // Find the size of the SR path
-        int length = 1;  // Starts at 2 because we count the origin and current node
-        SegmentTreeLeaf nextParent = parent;
-        while (nextParent != null) {
-            length += 1;
-            nextParent = nextParent.parent;
-        }
-        return length;
     }
 
     /**

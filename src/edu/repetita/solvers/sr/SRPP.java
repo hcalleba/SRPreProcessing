@@ -3,6 +3,7 @@ package edu.repetita.solvers.sr;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
+import edu.repetita.io.RepetitaWriter;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.SRSolver;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
@@ -49,9 +50,15 @@ public class SRPP extends SRSolver {
         float[][][] edgeLoadPerPair = makeEdgeLoadPerPair(topology);
         SegmentTreeRoot root = new SegmentTreeRoot(nNodes, nEdges, maxSegments, edgeLoadPerPair);
         root.createODPaths();
+        // TODO get paths in a more readable way (per OD pair)
         int[][] allPaths = root.getAllPaths();
         // int[][] ODPaths = root.getODPaths();
-        System.out.println(allPaths);
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < allPaths.length; i++) {
+            builder.append(Arrays.toString(allPaths[i]));
+            builder.append("\n");
+        }
+        RepetitaWriter.writeToPathFile(builder.toString());
         System.out.println("End of SRPP solve function");
     }
 

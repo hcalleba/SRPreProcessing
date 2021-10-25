@@ -2,9 +2,6 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 
 import edu.repetita.core.Demands;
 
-import java.util.Collections;
-import java.util.LinkedList;
-
 /**
  * Root of the tree containing all non-dominated n-SR paths of a Topology up till n = maxSegments
  */
@@ -57,7 +54,7 @@ public class SegmentTreeRoot {
         int[][] allPaths = new int[numberOfPaths][];  // Array containing all the paths
         int[] allPathsIndex = new int[1];  // Array of size 1 to pass int by reference
         // Integer instead of int to pass by reference
-        int[] currentPath = new int[maxSegments+1];  // Array containing the nodes of the path we are currently processing
+        int[] currentPath = new int[20+1];  // Array containing the nodes of the path we are currently processing
         int currentPathIndex = 0;  // Index to remember how many nodes are in the currentPath
         // Depth-first search in the tree to get the all the SR-paths
         for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
@@ -75,6 +72,15 @@ public class SegmentTreeRoot {
         return allPaths;
     }
 
+    /**
+     * For a leaf currentLeaf, recursively writes all SR-paths corresponding to this leaf and all of its children by
+     * doing a depth-first.
+     * @param allPaths List containing all the currently processed paths
+     * @param allPathsIndex Index for allPaths indicating which part of the array is already processed
+     * @param currentPath An array of nodes corresponding to the nodes prior to currentLeaf in the SR-path
+     * @param currentPathIndex Index for currentPath indicating which part of the array corresponds to prior nodes of the path
+     * @param currentLeaf The leaf we are currently processing
+     */
     private void depthFirstCreation(int[][] allPaths, int[] allPathsIndex, int[] currentPath, int currentPathIndex, SegmentTreeLeaf currentLeaf) {
         // We add the path corresponding to the current leaf to allPaths
         currentPath[currentPathIndex] = currentLeaf.currentNodeNumber;
@@ -99,7 +105,6 @@ public class SegmentTreeRoot {
         for (int depth = 2; depth <= maxSegments; depth++) {
             for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
                 // TODO maybe add demands parameter ?
-                // Should maybe add a reference to first item in LinkedList with currentMaxSegmentsProcessed
                 branches[branchNumber].addDepth(depth);
             }
         }

@@ -1,5 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.ListIterator;
 
@@ -16,8 +17,6 @@ public class SegmentTreeBranch {
     private final SegmentTreeLeaf[] leaves;
     // For each destination node, the list will contain all paths to that node
     private final LinkedList<SegmentTreeLeaf>[] pathsToDestination;
-    // Maximum depth of the SR-paths
-    private int maxDepth;
     // int pointing to the first element of size maxDepth in pathsToDestination
     private final int[] firstPathMaxDepth;
 
@@ -27,7 +26,6 @@ public class SegmentTreeBranch {
         leaves = new SegmentTreeLeaf[root.nNodes];
         pathsToDestination = new LinkedList[root.nNodes];
         firstPathMaxDepth = new int[root.nNodes];  // Initialised to 0 which is what we want
-        maxDepth = 1;
 
         // Initialisation of 1-SR (=OSPF) path for each destination node.
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
@@ -92,38 +90,62 @@ public class SegmentTreeBranch {
     }
 
     /**
-     * Tests if a path origin destination is with edge loads edgeLoads is dominated by another path already in the tree.
+     * Tests if a path origin destination with edge loads edgeLoads is dominated by another path already in the tree.
      * The parameter origin is not needed as it is already part of the branch instance.
      * @param destination the destination node of the tested path
      * @param newEdgeLoads the edge loads of the tested path (remember we assume a flow of one is used to compute the loads)
+     * @param depth the current depth of the tree for which all SR-paths have already been processed.
+     *              The depth of the node we are trying to add will therefore be depth+1
      * @return true if the path is dominated (or equal to another), false otherwise
      */
-    public boolean isDominated(int destination, float[] newEdgeLoads) {
-        // TODO boolean newBetterThanOld;
+    public boolean isDominated(int destination, float[] newEdgeLoads, int depth) {
+        // TODO test both ways
         // TODO better rounding for floating point imprecision
-        // TODO need to change if I don't want to compare when same size
-        boolean oldBetterThanNew;
         // Loop over all non-dominated OD paths currently in the tree
         for ( SegmentTreeLeaf oldPath : pathsToDestination[destination] ) {
-            oldBetterThanNew = true;
-            // If it has 1 edge that is not worse, then it cannot be dominated
-            for (int edgeNumber = 0; edgeNumber < root.nEdges; edgeNumber++) {
-                if (newEdgeLoads[edgeNumber] + 0.00001 < oldPath.edgeLoads[edgeNumber]) {
-                    oldBetterThanNew = false;
-                    break;
+            if (oldPath.depth <= depth) {
+                // If the new path is dominated by at least one path we can instantly return
+                if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
+                    return true;
                 }
             }
-            // If the new path is dominated by at least one path we can instantly return
-            if (oldBetterThanNew) {
-                return true;
+            else {
+                if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
+                    return true;
+                }
+                System.out.println("ATTENTION: a path is dominated by another of same size");
+                System.out.println("Dominating path :");
+                System.out.println(Arrays.toString(oldPath.getPath()));
+                System.out.println("");
             }
+            // TODO at least compare paths of the same size in both directions since they can be dominating
         }
         // If it was dominated by no path, then it is non-dominated
         return false;
     }
 
+    /**
+     * Compares two arrays of edge loads and return true if newEdgeLoads is dominated by oldEdgeLoads
+     * @param newEdgeLoads the edge loads that could be dominated
+     * @param oldEdgeLoads the edge loads that could be dominating
+     * @return true if newEdgeLoads dominated by oldEdgeLoads, false otherwise
+     */
+    private static boolean dominates(float[] newEdgeLoads, float[] oldEdgeLoads) {
+        // If it has 1 edge that is not worse, then it cannot be dominated
+        for (int edgeNumber = 0; edgeNumber < newEdgeLoads.length; edgeNumber++) {
+            if (newEdgeLoads[edgeNumber] + 0.00001 < oldEdgeLoads[edgeNumber]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Adds a new depth of SR-paths in the branch.
+     * It tries to add every possible node to all paths of leaves of with depth == depth
+     * @param depth the depth of the new layer to be added, equivalently called the segment size
+     */
     protected void addDepth(int depth) {
-        // TODO when I tryAddChild and it succeeds, I should not try to add a child after the node I just added
         float[] edgeContainer = new float[root.nEdges];
         int[] addedPathsPerDest = new int[root.nNodes];
         // Iterate over all destination nodes
@@ -136,7 +158,7 @@ public class SegmentTreeBranch {
                     // Try to add all possible nodes at the end
                     SegmentTreeLeaf nextLeaf = iterator.next();
                     // This is needed otherwise I would try to add nodes after paths created at this iteration of addDepth
-                    if (nextLeaf.depth >= depth) {
+                    if (nextLeaf.depth != depth-1) {
                         break;
                     }
                     for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
