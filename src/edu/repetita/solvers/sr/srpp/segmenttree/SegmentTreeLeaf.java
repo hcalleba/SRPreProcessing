@@ -1,5 +1,7 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
+// TODO make a branch on git with edge loads not stored for each SR path (should be longer computations, but might resolve memory problem on large instances)
+
 public class SegmentTreeLeaf {
     public final SegmentTreeBranch branch;
     // Number of the node to which this leaf corresponds.
@@ -91,20 +93,6 @@ public class SegmentTreeLeaf {
 
     /**
      * Creates an array of integers each corresponding to a node in the topology.
-     * The array corresponds to the SR path of this leaf.
-     * The only difference between this.getPath() and this.getPathNoOrigin() is the fact that the origin is present or not.
-     * @return an array of int corresponding to the SR path of the current leaf.
-     */
-    public int[] getPathNoOrigin() {
-        int length = depth;
-        // Create the container for the SR path
-        int[] path = new int[length];
-        // Fill the path with the nodes inside it
-        return fillPathWithLeavesNumbers(length-1, path);
-    }
-
-    /**
-     * Creates an array of integers each corresponding to a node in the topology.
      * The array itself corresponds to the SR path of the current node plus a new node lastNode added et the end.
      * This function is useful when trying to create new SR-paths, this helps us to test if the latter part of a new
      * SR-path we try to add is already itself an existing SR-path.
@@ -150,5 +138,13 @@ public class SegmentTreeLeaf {
      */
     protected SegmentTreeLeaf getChild(int childNumber) {
         return children[childNumber];
+    }
+
+    /**
+     * Deletes a child from the leaf by replacing it by null
+     * @param childNumber  the node number of the child to be deleted
+     */
+    protected void deleteChild(int childNumber) {
+        children[childNumber] = null;
     }
 }

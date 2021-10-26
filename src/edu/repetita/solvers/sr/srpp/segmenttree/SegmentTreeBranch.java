@@ -1,6 +1,5 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.ListIterator;
 
@@ -17,27 +16,24 @@ public class SegmentTreeBranch {
     private final SegmentTreeLeaf[] leaves;
     // For each destination node, the list will contain all paths to that node
     private final LinkedList<SegmentTreeLeaf>[] pathsToDestination;
-    // int pointing to the first element of size maxDepth in pathsToDestination
-    private final int[] firstPathMaxDepth;
 
     public SegmentTreeBranch(SegmentTreeRoot root, int currentNodeNumber, float[][][] edgeLoadPerPair) {
         this.root = root;
         this.currentNodeNumber = currentNodeNumber;
         leaves = new SegmentTreeLeaf[root.nNodes];
         pathsToDestination = new LinkedList[root.nNodes];
-        firstPathMaxDepth = new int[root.nNodes];  // Initialised to 0 which is what we want
 
         // Initialisation of 1-SR (=OSPF) path for each destination node.
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
             if (nodeNumber == currentNodeNumber) {
                 leaves[nodeNumber] = null;
                 // We still create the empty LinkedList for coherence in the code
-                pathsToDestination[nodeNumber] = new LinkedList<SegmentTreeLeaf>();
+                pathsToDestination[nodeNumber] = new LinkedList<>();
             }
             else {
                 // Remember that edgeLoadPerPair works in the following way: [dest][origin][edge]
                 leaves[nodeNumber] = new SegmentTreeLeaf(this, null, nodeNumber, edgeLoadPerPair[nodeNumber][currentNodeNumber]);
-                pathsToDestination[nodeNumber] = new LinkedList<SegmentTreeLeaf>();
+                pathsToDestination[nodeNumber] = new LinkedList<>();
                 pathsToDestination[nodeNumber].add(leaves[nodeNumber]);
             }
         }
@@ -99,26 +95,32 @@ public class SegmentTreeBranch {
      * @return true if the path is dominated (or equal to another), false otherwise
      */
     public boolean isDominated(int destination, float[] newEdgeLoads, int depth) {
-        // TODO test both ways
-        // TODO better rounding for floating point imprecision
         // Loop over all non-dominated OD paths currently in the tree
-        for ( SegmentTreeLeaf oldPath : pathsToDestination[destination] ) {
+        ListIterator<SegmentTreeLeaf> iterator = pathsToDestination[destination].listIterator();
+        while (iterator.hasNext()){
+            SegmentTreeLeaf oldPath = iterator.next();
             if (oldPath.depth <= depth) {
                 // If the new path is dominated by at least one path we can instantly return
                 if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
                     return true;
+                }
+                if (dominates(oldPath.edgeLoads, newEdgeLoads)) {
+                    System.out.println("Longer SR-path dominates shorter SR-path; this is a problem.");
                 }
             }
             else {
                 if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
                     return true;
                 }
-                System.out.println("ATTENTION: a path is dominated by another of same size");
-                System.out.println("Dominating path :");
-                System.out.println(Arrays.toString(oldPath.getPath()));
-                System.out.println("");
+                // Compare to see if it is dominating a path added earlier in this iteration of addDepth()
+                if (dominates(oldPath.edgeLoads, newEdgeLoads)) {
+                    // If it is dominating a path already added, we then need to delete this path
+                    // Remove from the LinkedList
+                    iterator.remove();
+                    // Remove from its parent children's list
+                    oldPath.parent.deleteChild(oldPath.currentNodeNumber);
+                }
             }
-            // TODO at least compare paths of the same size in both directions since they can be dominating
         }
         // If it was dominated by no path, then it is non-dominated
         return false;
@@ -147,30 +149,27 @@ public class SegmentTreeBranch {
      */
     protected void addDepth(int depth) {
         float[] edgeContainer = new float[root.nEdges];
-        int[] addedPathsPerDest = new int[root.nNodes];
         // Iterate over all destination nodes
         for (int destinationNode = 0; destinationNode < root.nNodes; destinationNode++) {
-            // Test if there are SR-paths of size maxDepth
-            if (firstPathMaxDepth[destinationNode] < pathsToDestination[destinationNode].size()) {
-                // iterate over these SR-paths of size maxDepth
-                ListIterator<SegmentTreeLeaf> iterator = pathsToDestination[destinationNode].listIterator(firstPathMaxDepth[destinationNode]);
-                while (iterator.hasNext()) {
+            // iterate over the SR-paths
+            for (SegmentTreeLeaf nextLeaf : pathsToDestination[destinationNode]) {
+                // Only try to add nodes to leaves with leaf.depth == depth-1
+                if (nextLeaf.depth == depth - 1) {
                     // Try to add all possible nodes at the end
-                    SegmentTreeLeaf nextLeaf = iterator.next();
-                    // This is needed otherwise I would try to add nodes after paths created at this iteration of addDepth
-                    if (nextLeaf.depth != depth-1) {
-                        break;
-                    }
                     for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
-                        if (nextLeaf.tryAddChild(lastNode, edgeContainer)) {
-                            addedPathsPerDest[destinationNode]++;
-                        }
+                        nextLeaf.tryAddChild(lastNode, edgeContainer);
                     }
                 }
             }
         }
-        for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
-            firstPathMaxDepth[nodeNumber] += addedPathsPerDest[nodeNumber];
-        }
+    }
+
+    /**
+     * Deletes a leaf from the tree by removing it from the LinkedList and its parent children's list
+     * @param leaf a reference to the leaf to be removed
+     */
+    protected void deleteLeaf(SegmentTreeLeaf leaf) {
+        pathsToDestination[leaf.currentNodeNumber].remove(leaf);
+        leaf.parent.deleteChild(leaf.currentNodeNumber);
     }
 }

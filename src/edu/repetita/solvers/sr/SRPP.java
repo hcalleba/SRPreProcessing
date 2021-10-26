@@ -50,13 +50,18 @@ public class SRPP extends SRSolver {
         float[][][] edgeLoadPerPair = makeEdgeLoadPerPair(topology);
         SegmentTreeRoot root = new SegmentTreeRoot(nNodes, nEdges, maxSegments, edgeLoadPerPair);
         root.createODPaths();
-        // TODO get paths in a more readable way (per OD pair)
-        int[][] allPaths = root.getAllPaths();
-        // int[][] ODPaths = root.getODPaths();
+        // It is also possible to get all paths through root.getAllPaths(), this would be slightly faster, but the paths
+        // would not be ordered  in a convenient way. This is why root.createODPaths() is used
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < allPaths.length; i++) {
-            builder.append(Arrays.toString(allPaths[i]));
-            builder.append("\n");
+        int[][] paths;
+        for (int originNumber = 0; originNumber < nNodes; originNumber++) {
+            for (int destNumber = 0; destNumber < nNodes; destNumber++) {
+                paths = root.getODPaths(originNumber, destNumber);
+                for (int i = 0; i < paths.length; i++) {
+                    builder.append(Arrays.toString(paths[i]));
+                    builder.append("\n");
+                }
+            }
         }
         RepetitaWriter.writeToPathFile(builder.toString());
         System.out.println("End of SRPP solve function");

@@ -86,9 +86,7 @@ public class SegmentTreeRoot {
         currentPath[currentPathIndex] = currentLeaf.currentNodeNumber;
         currentPathIndex++;
         allPaths[allPathsIndex[0]] = new int[currentPathIndex];
-        for (int i=0; i<currentPathIndex; i++) {
-            allPaths[allPathsIndex[0]][i] = currentPath[i];
-        }
+        System.arraycopy(currentPath, 0, allPaths[allPathsIndex[0]], 0, currentPathIndex);
         allPathsIndex[0]++;
         for (int leafNumber = 0; leafNumber < nNodes; leafNumber++) {
             if (currentLeaf.getChild(leafNumber) != null) {
@@ -125,5 +123,14 @@ public class SegmentTreeRoot {
             }
         }
         return (nextLeaf != null);
+    }
+
+    /**
+     * Deletes a leaf from the tree by removing it from the LinkedList and its parent children's list
+     * This method only calls the deleteLeaf() method on the correct branch
+     * @param leaf a reference to the leaf to be removed
+     */
+    private void deleteLeaf(SegmentTreeLeaf leaf) {
+        branches[leaf.branch.currentNodeNumber].deleteLeaf(leaf);
     }
 }
