@@ -71,3 +71,12 @@ Yet it is still mandatory to provide a demand file as I did not change too much 
 8. I don't think adding the demands to the algorithm is really useful. For example on the largest graph, there are 314 nodes,
 this implies a possible 314²-314 OD pairs for demands (=98282), and there are in fact 96057 demands in the demands file,
 which is almost every demand.
+
+
+9. Some paths use extremely long detours, we might add a threshold with respect to total utilisation that might not
+exceed a certain amount * OSPF(total utilisation). Although this would not be an exact method anymore.
+For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW3A to go from node 1 to 0, the SR-path
+1-23-0 exists which is very unlikely to ever appear in a good solution as the detour is immense.
+
+
+10. Multithreading could probably be implemented without too much hassle and could make the algorithm go faster.

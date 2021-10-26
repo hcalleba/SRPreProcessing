@@ -5,8 +5,8 @@ It is slightly modified to make it lighter and executable  under windows;
     solver.
 
 To execute:
-gurobi.jar needs to be added to the lib folder. (TODO)
-commons-lang is also required but should be present if IntellIJ is used due to the SRPreProc.iml file (TODO use maven to facilitate)
+gurobi.jar needs to be added to the lib folder. (TODO, is not necessary yet)
+commons-lang is also required but should be present if IntellIJ is used due to the SRPreProc.iml file (TODO use maven to facilitate the dependencies)
 
 The program is executed in the following way:
 
@@ -18,5 +18,5 @@ java exec.jar -graph data/2016TopologyZooUCL_inverseCapacity/Iris.graph -demands
 
 To see how the topology looks like, it is possible here:
 https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW3A
-The topology file can be copied in topology.txt and sketch.js can then be run. (the curent topology is the Iris one)
+The topology file can be copied in topology.txt and sketch.js can then be run. (the current topology is the Iris one)
 Most topologies do not come with coordinates for the nodes, drawOnCircle should then be set to true to place all nodes on a circle.
