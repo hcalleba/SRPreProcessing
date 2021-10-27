@@ -1,38 +1,85 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
 // TODO make a branch on git with edge loads not stored for each SR path (should be longer computations, but might resolve memory problem on large instances)
+// TODO merge branch and leaf classes
 
-public class SegmentTreeLeaf {
-    public final SegmentTreeBranch branch;
-    // Number of the node to which this leaf corresponds.
+class SegmentTreeLeaf {
     public final int currentNodeNumber;
+    public final int originNodeNumber;
     public final SegmentTreeLeaf parent;
+    public final SegmentTreeRoot root;
+    public final int depth;
     private final SegmentTreeLeaf[] children;
-    protected final float[] edgeLoads;
-    protected final int depth;
 
-    public SegmentTreeLeaf(SegmentTreeBranch branch, SegmentTreeLeaf parent, int currentNodeNumber, float[] edgeLoads) {
-        this(branch, parent, currentNodeNumber, edgeLoads, 1);
+    /* OK */
+    public SegmentTreeLeaf(int currentNodeNumber, SegmentTreeRoot root) {
+        this.currentNodeNumber = currentNodeNumber;
+        this.originNodeNumber = currentNodeNumber; // TODO is this really useful ?
+        this.parent = null;
+        this.root = root;
+        this.depth = 0;
+        this.children = new SegmentTreeLeaf[root.nNodes];
+        // Create all 1-SR (OSPF) paths
+        for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
+            if (nodeNumber != currentNodeNumber) {
+                addChild(nodeNumber);
+            }
+        }
     }
 
-    public SegmentTreeLeaf(SegmentTreeBranch branch, SegmentTreeLeaf parent, int currentNodeNumber, float[] edgeLoads, int depth) {
-        this.branch = branch;
-        this.parent = parent;
+    /* OK */
+    public SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent) {
         this.currentNodeNumber = currentNodeNumber;
-        children = new SegmentTreeLeaf[branch.root.nNodes];
-        this.edgeLoads = edgeLoads;
-        this.depth = depth;
+        this.originNodeNumber = parent.originNodeNumber;
+        this.parent = parent;
+        this.root = parent.root;
+        this.depth = parent.depth+1;
+        this.children = new SegmentTreeLeaf[root.nNodes];
+    }
+
+    /* OK */
+    /**
+     * Adds a child with node number = childNumber to the current leaf
+     * @param childNumber the node number in the topology of the newly added child
+     */
+    private void addChild(int childNumber) {
+        children[childNumber] = new SegmentTreeLeaf(childNumber, this);
+        root.addLeafToList(children[childNumber]);
+    }
+
+    /* OK */
+    public float[] getEdgeLoads() {
+        float[] edgeLoads = new float[root.nEdges];
+        SegmentTreeLeaf destLeaf = this;
+        SegmentTreeLeaf originLeaf = this.parent;
+        while (originLeaf != null ) {
+            float[] resultLoads = root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber);
+            addLoadArrays(edgeLoads, resultLoads, edgeLoads);
+            destLeaf = destLeaf.parent;
+            originLeaf = originLeaf.parent;
+        }
+        return edgeLoads;
+    }
+
+    /* OK */
+    public static void addLoadArrays(float[] firstArray, float[] secondArray, float[] resultArray) {
+        for (int i = 0; i < firstArray.length; i++) {
+            resultArray[i] = firstArray[i] + secondArray[i];
+        }
     }
 
     /**
-     * Adds a child to the current leaf
-     * @param childNumber the node number in the topology of the newly added child
-     * @param childEdgeLoads the loads on the edges of the newly added child, the array will be cloned.
+     * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
+     * if the obtained path is dominated.
      */
-    private void addChild(int childNumber, float[] childEdgeLoads) {
-        float[] newChildEdgeLoads = childEdgeLoads.clone();
-        children[childNumber] = new SegmentTreeLeaf(branch, this, childNumber, newChildEdgeLoads, depth+1);
-        branch.addLeafToLinkedList(children[childNumber]);
+    protected void extendSRPath() {
+        float[] edgeLoads = getEdgeLoads();
+        float[] container = new float[root.nEdges];
+        for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
+            addLoadArrays(edgeLoads, root.getODLoads(currentNodeNumber, lastNode), container);
+            // test if container is dominated by any of the paths
+            // originNodeNumber -> lastNode:
+        }
     }
 
     /**
@@ -64,14 +111,16 @@ public class SegmentTreeLeaf {
         }
 
         // Test if the path is dominated
-        float[] edgeLoadsLastSegment = branch.root.getBranch(currentNodeNumber).getLeaf(childNumber).edgeLoads;
+        // TODO can do better since I know I will call tryAddChild() multiple times on the same leaf
+        float[] edgeLoadsLastSegment = branch.root.getODLoads(currentNodeNumber, childNumber);
+        float[] edgeLoadsAllButLastSegment = getEdgeLoads();
         for (int edgeNumber = 0; edgeNumber < branch.root.nEdges; edgeNumber++) {
-            edgeLoadContainer[edgeNumber] = edgeLoadsLastSegment[edgeNumber] + this.edgeLoads[edgeNumber];
+            edgeLoadContainer[edgeNumber] = edgeLoadsLastSegment[edgeNumber] + edgeLoadsAllButLastSegment[edgeNumber];
         }
         if (branch.isDominated(childNumber, edgeLoadContainer, depth)) {
             return false;
         }
-        addChild(childNumber, edgeLoadContainer);
+        addChild(childNumber);
         return true;
     }
 

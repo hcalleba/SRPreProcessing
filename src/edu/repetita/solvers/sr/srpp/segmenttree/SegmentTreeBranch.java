@@ -8,7 +8,7 @@ import java.util.ListIterator;
  * A branch corresponds to an origin node; it will therefore only contain OD SR-paths where the origin node
  * is the currentNodeNumber in the topology.
  */
-public class SegmentTreeBranch {
+class SegmentTreeBranch {
     // Parent root structure
     public final SegmentTreeRoot root;
     // Number corresponding to the (origin) node of this branch in the topology
@@ -17,7 +17,7 @@ public class SegmentTreeBranch {
     // For each destination node, the list will contain all paths to that node
     private final LinkedList<SegmentTreeLeaf>[] pathsToDestination;
 
-    public SegmentTreeBranch(SegmentTreeRoot root, int currentNodeNumber, float[][][] edgeLoadPerPair) {
+    public SegmentTreeBranch(SegmentTreeRoot root, int currentNodeNumber) {
         this.root = root;
         this.currentNodeNumber = currentNodeNumber;
         leaves = new SegmentTreeLeaf[root.nNodes];
@@ -32,29 +32,11 @@ public class SegmentTreeBranch {
             }
             else {
                 // Remember that edgeLoadPerPair works in the following way: [dest][origin][edge]
-                leaves[nodeNumber] = new SegmentTreeLeaf(this, null, nodeNumber, edgeLoadPerPair[nodeNumber][currentNodeNumber]);
+                leaves[nodeNumber] = new SegmentTreeLeaf(this, null, nodeNumber);
                 pathsToDestination[nodeNumber] = new LinkedList<>();
                 pathsToDestination[nodeNumber].add(leaves[nodeNumber]);
             }
         }
-    }
-
-    /**
-     * Adds a leaf to the list of all paths ending on the destination node of the path
-     * @param path the leaf corresponding to the path to be added
-     */
-    protected void addLeafToLinkedList(SegmentTreeLeaf path) {
-        pathsToDestination[path.currentNodeNumber].add(path);
-    }
-
-    /**
-     * Returns the leaf corresponding to leafNumber. This leaf will then correspond to a path:
-     * this.currentNodeNumber -> leafNumber
-     * @param leafNumber the number corresponding to the node in the topology.
-     * @return The said leaf
-     */
-    protected SegmentTreeLeaf getLeaf(int leafNumber) {
-        return leaves[leafNumber];
     }
 
     /**
@@ -74,18 +56,6 @@ public class SegmentTreeBranch {
     }
 
     /**
-     * Computes the number of non dominated paths on this branch
-     * @return the number of non dominated paths of the branch
-     */
-    public int getNumberOfPaths() {
-        int nbPaths = 0;
-        for (int leafNumber = 0; leafNumber < root.nNodes; leafNumber++) {
-            nbPaths += pathsToDestination[leafNumber].size();
-        }
-        return nbPaths;
-    }
-
-    /**
      * Tests if a path origin destination with edge loads edgeLoads is dominated by another path already in the tree.
      * The parameter origin is not needed as it is already part of the branch instance.
      * @param destination the destination node of the tested path
@@ -101,19 +71,19 @@ public class SegmentTreeBranch {
             SegmentTreeLeaf oldPath = iterator.next();
             if (oldPath.depth <= depth) {
                 // If the new path is dominated by at least one path we can instantly return
-                if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
+                if (dominates(newEdgeLoads, oldPath.getEdgeLoads())) {
                     return true;
                 }
-                if (dominates(oldPath.edgeLoads, newEdgeLoads)) {
+                if (dominates(oldPath.getEdgeLoads(), newEdgeLoads)) {
                     System.out.println("Longer SR-path dominates shorter SR-path; this is a problem.");
                 }
             }
             else {
-                if (dominates(newEdgeLoads, oldPath.edgeLoads)) {
+                if (dominates(newEdgeLoads, oldPath.getEdgeLoads())) {
                     return true;
                 }
                 // Compare to see if it is dominating a path added earlier in this iteration of addDepth()
-                if (dominates(oldPath.edgeLoads, newEdgeLoads)) {
+                if (dominates(oldPath.getEdgeLoads(), newEdgeLoads)) {
                     // If it is dominating a path already added, we then need to delete this path
                     // Remove from the LinkedList
                     iterator.remove();
