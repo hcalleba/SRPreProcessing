@@ -9,7 +9,7 @@ class SegmentTreeLeaf {
     public final SegmentTreeLeaf parent;
     public final SegmentTreeRoot root;
     public final int depth;
-    private final SegmentTreeLeaf[] children;
+    protected final SegmentTreeLeaf[] children;
 
     /* OK */
     public SegmentTreeLeaf(int currentNodeNumber, SegmentTreeRoot root) {
@@ -54,7 +54,7 @@ class SegmentTreeLeaf {
         SegmentTreeLeaf originLeaf = this.parent;
         while (originLeaf != null ) {
             float[] resultLoads = root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber);
-            addLoadArrays(edgeLoads, resultLoads, edgeLoads);
+            addArcLoadArrays(edgeLoads, resultLoads, edgeLoads);
             destLeaf = destLeaf.parent;
             originLeaf = originLeaf.parent;
         }
@@ -62,12 +62,13 @@ class SegmentTreeLeaf {
     }
 
     /* OK */
-    public static void addLoadArrays(float[] firstArray, float[] secondArray, float[] resultArray) {
+    public static void addArcLoadArrays(float[] firstArray, float[] secondArray, float[] resultArray) {
         for (int i = 0; i < firstArray.length; i++) {
             resultArray[i] = firstArray[i] + secondArray[i];
         }
     }
 
+    /* OK */
     /**
      * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
      * if the obtained path is dominated.
@@ -75,12 +76,73 @@ class SegmentTreeLeaf {
     protected void extendSRPath() {
         float[] edgeLoads = getEdgeLoads();
         float[] container = new float[root.nEdges];
+        boolean createdLoads = false;
         for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
-            addLoadArrays(edgeLoads, root.getODLoads(currentNodeNumber, lastNode), container);
-            // test if container is dominated by any of the paths
-            // originNodeNumber -> lastNode:
+            if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
+                if (!createdLoads) {
+                    addArcLoadArrays(edgeLoads, root.getODLoads(currentNodeNumber, lastNode), container);
+                    createdLoads = true;
+                }
+                if (root.testNewPathDomination(container, originNodeNumber, lastNode, depth+1)) {
+                    addChild(lastNode);
+                }
+            }
         }
     }
+    /* OK */
+    /**
+     * Tests if a node is already on the path of this leaf
+     * @param nodeNumber
+     * @return
+     */
+    protected boolean isOnPath(int nodeNumber) {
+        SegmentTreeLeaf nextNode = this;
+        while (nextNode != null) {
+            if (nextNode.currentNodeNumber == nodeNumber) {
+                return true;
+            }
+            nextNode = nextNode.parent;
+        }
+        return false;
+    }
+
+    /* OK */
+    /**
+     * Creates an array of integers each corresponding to a node in the topology.
+     * The array corresponds to [origin+1], ..., this, lastNode
+     * @param lastNode the node number of the last node
+     * @return the corresponding SR-path
+     */
+    private int[] getTestingPath(int lastNode) {
+        int[] path = new int[depth+1];
+        path[depth] = lastNode;
+        SegmentTreeLeaf nextNode = this;
+        for (int varDepth = depth-1; varDepth >= 0; varDepth--) {
+            path[varDepth] = nextNode.currentNodeNumber;
+            nextNode = nextNode.parent;
+        }
+        return path;
+    }
+
+   /* OK */
+    /**
+     * Creates an array of integers each corresponding to a node in the topology.
+     * The array corresponds to [origin], ..., this; which is the SR-path of this node
+     * @return an array of int corresponding to the SR path of the current leaf with the origin.
+     */
+    public int[] getPath() {
+        int[] path = new int[depth+1];
+        SegmentTreeLeaf nextNode = this;
+        for (int varDepth = depth; varDepth >= 0; varDepth--) {
+            path[varDepth] = nextNode.currentNodeNumber;
+            nextNode = nextNode.parent;
+        }
+        return path;
+    }
+
+
+
+
 
     /**
      * Tries to add a child to the current leaf, creating a new SR path.
@@ -122,71 +184,6 @@ class SegmentTreeLeaf {
         }
         addChild(childNumber);
         return true;
-    }
-
-    /**
-     * Creates an array of integers each corresponding to a node in the topology.
-     * The array corresponds to the SR path of this leaf plus the origin (remember that in principle the origin is not
-     * part of the SR path).
-     * @return an array of int corresponding to the SR path of the current leaf with the origin.
-     */
-    public int[] getPath() {
-        int length = depth+1;
-        // Create the container for the SR path
-        int[] path = new int[length];
-        // Add origin (branch) node
-        path[0] = branch.currentNodeNumber;
-        // Fill the path with the nodes inside it
-        return fillPathWithLeavesNumbers(length-1, path);
-    }
-
-    /**
-     * Creates an array of integers each corresponding to a node in the topology.
-     * The array itself corresponds to the SR path of the current node plus a new node lastNode added et the end.
-     * This function is useful when trying to create new SR-paths, this helps us to test if the latter part of a new
-     * SR-path we try to add is already itself an existing SR-path.
-     * @param lastNode the number of the last node to be added
-     * @return the path corresponding to the SR-path of the node + lastNode
-     */
-    public int[] getTestingPath(int lastNode) {
-        int length = depth+1;
-        // Create the container for the SR path
-        int[] path = new int[length];
-        // Add the last node
-        path[length-1] = lastNode;
-        // Fill the path with the nodes inside it
-        return fillPathWithLeavesNumbers(length-2, path);
-    }
-
-    /**
-     * Fills an array of int (nodes) with the current node number starting at the end of the array and then looping over
-     * the parents adding them until there is no parent left
-     * @param start the index of the array at which we start filling it
-     * @param path the array to be filled
-     * @return the path array after it is filled
-     */
-    private int[] fillPathWithLeavesNumbers(int start, int[] path) {
-        // Add current leaf number to end of path
-        path[start] = currentNodeNumber;
-        // Loop over all parents and add them at the end
-        SegmentTreeLeaf nextParent = parent;
-        int index = start-1;
-        while (nextParent != null) {
-            path[index] = nextParent.currentNodeNumber;
-            nextParent = nextParent.parent;
-            index--;
-        }
-        return path;
-    }
-
-    /**
-     * Get the leaf corresponding to childNumber as next node.
-     * Will return null if not existing.
-     * @param childNumber the node number corresponding to the leaf
-     * @return The requested leaf
-     */
-    protected SegmentTreeLeaf getChild(int childNumber) {
-        return children[childNumber];
     }
 
     /**

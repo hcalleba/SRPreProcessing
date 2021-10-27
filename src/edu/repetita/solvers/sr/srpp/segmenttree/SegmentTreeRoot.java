@@ -7,9 +7,7 @@ import edu.repetita.solvers.sr.srpp.ComparableIntPair;
 import java.util.Arrays;
 import java.util.LinkedList;
 
-/**
- * Root of the tree containing all non-dominated n-SR paths of a Topology up till n = maxSegments
- */
+
 public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
@@ -55,12 +53,13 @@ public class SegmentTreeRoot {
         }
     }
 
+    /* OK */
+    // TODO try it out with a depth first search instead of iterating over the LinkedList
     private void addDepth(int depth) {
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int destNode = 0; destNode < nNodes; destNode++) {
                 for (SegmentTreeLeaf leaf : ODPaths[originNode][destNode]) {
                     if (leaf.depth == depth-1) {
-                        // Try to ad all possible nodes at the end
                         leaf.extendSRPath();
                     }
                     else if (leaf.depth == depth) {
@@ -71,6 +70,7 @@ public class SegmentTreeRoot {
         }
     }
 
+    /* OK */
     /**
      * Returns the loads on each arc when there is a demand of 1 from originNode to destNode
      * @param originNode the node from which the demand originates
@@ -81,30 +81,27 @@ public class SegmentTreeRoot {
         return edgeLoadPerPair[destNode][originNode];
     }
 
+    /* OK */
     /**
-     * returns if a path is present in the tree or not
+     * returns true if path is an existing SR-path in the tree, false otherwise
      * @param path the path whose presence is to be tested
      * @return true if the path exist, false if not
      */
     public boolean pathInTree(int[] path) {
-        SegmentTreeLeaf nextLeaf = leaves[path[0]].getLeaf(path[1]);  // I know this leaf will always exist as it is
-        // created at the start and corresponds to 1-SR or equivalently OSPF.
-        for (int index = 2; index < path.length; index++) {
-            nextLeaf = nextLeaf.getChild(path[index]);
+        SegmentTreeLeaf nextLeaf = leaves[path[0]];
+        for (int index = 1; index < path.length; index++) {
+            nextLeaf = nextLeaf.children[path[index]];
             if (nextLeaf == null) {
-                break;
+                return false;
             }
         }
-        return (nextLeaf != null);
+        return true;
     }
 
-    /**
-     * Deletes a leaf from the tree by removing it from the LinkedList and its parent children's list
-     * This method only calls the deleteLeaf() method on the correct branch
-     * @param leaf a reference to the leaf to be removed
-     */
-    private void deleteLeaf(SegmentTreeLeaf leaf) {
-        leaves[leaf.branch.currentNodeNumber].deleteLeaf(leaf);
+    protected boolean testNewPathDomination(float[] edgeLoads, int originNode, int destNode, int depth) {
+        // see:
+        SegmentTreeBranch.isDominated();
+        return true;
     }
 
     /**
@@ -167,14 +164,24 @@ public class SegmentTreeRoot {
         }
     }
 
+
+
+
+
+
+
+
+
+
+
+
     /**
-     * Returns a branch of the tree.
-     * A branch corresponds to an origin node
-     * @param leafNumber the number of the origin node in the Topology
-     * @return the branch corresponding to the said origin node
+     * Deletes a leaf from the tree by removing it from the LinkedList and its parent children's list
+     * This method only calls the deleteLeaf() method on the correct branch
+     * @param leaf a reference to the leaf to be removed
      */
-    protected SegmentTreeLeaf getLeaf(int leafNumber) {
-        return leaves[leafNumber];
+    private void deleteLeaf(SegmentTreeLeaf leaf) {
+        leaves[leaf.branch.currentNodeNumber].deleteLeaf(leaf);
     }
 
     /**
