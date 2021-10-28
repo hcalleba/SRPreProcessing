@@ -6,6 +6,7 @@ import edu.repetita.solvers.sr.srpp.ComparableIntPair;
 
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.ListIterator;
 
 
 public class SegmentTreeRoot {
@@ -16,7 +17,6 @@ public class SegmentTreeRoot {
     private final SegmentTreeLeaf[] leaves;
     private final LinkedList<SegmentTreeLeaf>[][] ODPaths;
 
-    /* OK */
     public SegmentTreeRoot(Topology topology, int maxSegments) {
         this.nNodes = topology.nNodes;
         this.nEdges = topology.nEdges;
@@ -27,81 +27,11 @@ public class SegmentTreeRoot {
         this.edgeLoadPerPair = makeEdgeLoadPerPair(topology);
 
         for (int originNode  = 0; originNode < nNodes; originNode++) {
-            leaves[originNode] = new SegmentTreeLeaf(originNode, this);
             for (int destNode = 0; destNode < nNodes; destNode++) {
                 ODPaths[originNode][destNode] = new LinkedList<>();
             }
+            leaves[originNode] = new SegmentTreeLeaf(originNode, this);
         }
-    }
-
-    /* OK */
-    protected void addLeafToList(SegmentTreeLeaf leaf) {
-        ODPaths[leaf.originNodeNumber][leaf.currentNodeNumber].push(leaf);
-    }
-
-    /* OK */
-    /**
-     * Creates all SR paths up to maxSegments for all origin destination pairs in the Topology.
-     */
-    public void createODPaths() {
-        // By default, depth 1 was already constructed by the constructor.
-        for (int depth = 2; depth <= maxSegments; depth++) {
-            for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
-                // TODO maybe add demands parameter ?
-                addDepth(depth);
-            }
-        }
-    }
-
-    /* OK */
-    // TODO try it out with a depth first search instead of iterating over the LinkedList
-    private void addDepth(int depth) {
-        for (int originNode = 0; originNode < nNodes; originNode++) {
-            for (int destNode = 0; destNode < nNodes; destNode++) {
-                for (SegmentTreeLeaf leaf : ODPaths[originNode][destNode]) {
-                    if (leaf.depth == depth-1) {
-                        leaf.extendSRPath();
-                    }
-                    else if (leaf.depth == depth) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    /* OK */
-    /**
-     * Returns the loads on each arc when there is a demand of 1 from originNode to destNode
-     * @param originNode the node from which the demand originates
-     * @param destNode the node to which the demand is routed
-     * @return an array of floats corresponding to each edge's load
-     */
-    protected float[] getODLoads(int originNode, int destNode) {
-        return edgeLoadPerPair[destNode][originNode];
-    }
-
-    /* OK */
-    /**
-     * returns true if path is an existing SR-path in the tree, false otherwise
-     * @param path the path whose presence is to be tested
-     * @return true if the path exist, false if not
-     */
-    public boolean pathInTree(int[] path) {
-        SegmentTreeLeaf nextLeaf = leaves[path[0]];
-        for (int index = 1; index < path.length; index++) {
-            nextLeaf = nextLeaf.children[path[index]];
-            if (nextLeaf == null) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    protected boolean testNewPathDomination(float[] edgeLoads, int originNode, int destNode, int depth) {
-        // see:
-        SegmentTreeBranch.isDominated();
-        return true;
     }
 
     /**
@@ -164,40 +94,121 @@ public class SegmentTreeRoot {
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
     /**
-     * Deletes a leaf from the tree by removing it from the LinkedList and its parent children's list
-     * This method only calls the deleteLeaf() method on the correct branch
-     * @param leaf a reference to the leaf to be removed
+     * Creates all SR paths up to maxSegments for all origin destination pairs in the Topology.
      */
-    private void deleteLeaf(SegmentTreeLeaf leaf) {
-        leaves[leaf.branch.currentNodeNumber].deleteLeaf(leaf);
+    public void createODPaths() {
+        // By default, depth 1 was already constructed by the constructor.
+        for (int depth = 2; depth <= maxSegments; depth++) {
+            addDepth(depth);
+        }
+    }
+
+    // TODO try it out with a depth first search instead of iterating over the LinkedList
+    private void addDepth(int depth) {
+        for (int originNode = 0; originNode < nNodes; originNode++) {
+            for (int destNode = 0; destNode < nNodes; destNode++) {
+                for (SegmentTreeLeaf leaf : ODPaths[originNode][destNode]) {
+                    if (leaf.depth == depth-1) {
+                        leaf.extendSRPath();
+                    }
+                    else if (leaf.depth == depth) {
+                        // break;
+                    }
+                }
+            }
+        }
+    }
+
+    protected void addLeafToList(SegmentTreeLeaf leaf) {
+        ODPaths[leaf.originNodeNumber][leaf.currentNodeNumber].add(leaf);
     }
 
     /**
-     * Returns an array composed of all created SR paths between originNode and destinationNode
-     * @param originNode the origin node number in the Topology
-     * @param destinationNode the destination node number in the Topology
-     * @return an array of paths between the said origin and destination nodes.
+     * Returns the loads on each arc when there is a demand of 1 from originNode to destNode
+     * @param originNode the node from which the demand originates
+     * @param destNode the node to which the demand is routed
+     * @return an array of floats corresponding to each edge's load
      */
-    public int[][] getODPaths(int originNode, int destinationNode) {
-        return leaves[originNode].getODPaths(destinationNode);
+    protected float[] getODLoads(int originNode, int destNode) {
+        return edgeLoadPerPair[destNode][originNode];
     }
 
     /**
-     * Browses through the tree in a depth first manner to create an array of arrays containing all non-dominated paths
-     * @return the array of arrays each corresponding to a non dominated path
+     * returns true if path is an existing SR-path in the tree, false otherwise
+     * @param path the path whose presence is to be tested
+     * @return true if the path exist, false if not
      */
+    public boolean pathInTree(int[] path) {
+        SegmentTreeLeaf nextLeaf = leaves[path[0]];
+        for (int index = 1; index < path.length; index++) {
+            nextLeaf = nextLeaf.children[path[index]];
+            if (nextLeaf == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected boolean testNewPathDomination(float[] newPathEdgeLoads, int originNode, int destNode, int depth) {
+        // Loop over all non-dominated OD paths currently in the tree
+        ListIterator<SegmentTreeLeaf> iterator = ODPaths[originNode][destNode].listIterator();
+        SegmentTreeLeaf nextPath;
+        float[] nextPathLoads;
+        while (iterator.hasNext()) {
+            nextPath = iterator.next();
+            nextPathLoads = nextPath.getEdgeLoads();
+            if (nextPath.depth < depth) {
+                if (dominates(newPathEdgeLoads, nextPathLoads)) {
+                    return true;
+                }
+                if (dominates(nextPathLoads, newPathEdgeLoads)) {
+                    System.out.println("ERROR: shorter path dominated by longer path");
+                    System.exit(1);
+                }
+            }
+            else {
+                if (dominates(newPathEdgeLoads, nextPathLoads)) {
+                    return true;
+                }
+                if (dominates(nextPathLoads, newPathEdgeLoads)) {
+                    // Remove from LinkedList
+                    iterator.remove();
+                    // Remove from tree
+                    nextPath.delete();
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Compares two arrays of edge loads and returns true if maybeDominatedLoads is dominated by maybeDominatingLoads
+     * @param maybeDominatedLoads the edge loads that could be dominated
+     * @param maybeDominatingLoads the edge loads that could be dominating
+     * @return true if newEdgeLoads dominated by oldEdgeLoads, false otherwise
+     */
+    private static boolean dominates(float[] maybeDominatedLoads, float[] maybeDominatingLoads) {
+        // If it has 1 edge that is not worse, then it cannot be dominated
+        for (int edgeNumber = 0; edgeNumber < maybeDominatedLoads.length; edgeNumber++) {
+            if (maybeDominatedLoads[edgeNumber] + 0.00001 < maybeDominatingLoads[edgeNumber]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public int[][] getODPaths(int originNode, int destNode) {
+        int[][] paths = new int[ODPaths[originNode][destNode].size()][];
+        int index = 0;
+        for (SegmentTreeLeaf path : ODPaths[originNode][destNode]) {
+            paths[index] = path.getPath();
+            index++;
+        }
+        return paths;
+    }
+
+    /*
     public int[][] getAllPaths() {
         int numberOfPaths = 0;
         for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
@@ -225,15 +236,6 @@ public class SegmentTreeRoot {
         return allPaths;
     }
 
-    /**
-     * For a leaf currentLeaf, recursively writes all SR-paths corresponding to this leaf and all of its children by
-     * doing a depth-first.
-     * @param allPaths List containing all the currently processed paths
-     * @param allPathsIndex Index for allPaths indicating which part of the array is already processed
-     * @param currentPath An array of nodes corresponding to the nodes prior to currentLeaf in the SR-path
-     * @param currentPathIndex Index for currentPath indicating which part of the array corresponds to prior nodes of the path
-     * @param currentLeaf The leaf we are currently processing
-     */
     private void depthFirstCreation(int[][] allPaths, int[] allPathsIndex, int[] currentPath, int currentPathIndex, SegmentTreeLeaf currentLeaf) {
         // We add the path corresponding to the current leaf to allPaths
         currentPath[currentPathIndex] = currentLeaf.currentNodeNumber;
@@ -246,5 +248,5 @@ public class SegmentTreeRoot {
                 depthFirstCreation(allPaths, allPathsIndex, currentPath, currentPathIndex, currentLeaf.getChild(leafNumber));
             }
         }
-    }
+    }*/
 }
