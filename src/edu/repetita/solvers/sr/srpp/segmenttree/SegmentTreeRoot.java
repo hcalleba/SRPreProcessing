@@ -8,15 +8,24 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.ListIterator;
 
-
+/**
+ * Root of the tree containing the leaves (each corresponding to an SR-path) and information over the topology.
+ */
 public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
     private final float[][][] edgeLoadPerPair;
     private final SegmentTreeLeaf[] leaves;
+    // For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
+    // having origin and destination respectively as origin and destination nodes
     private final LinkedList<SegmentTreeLeaf>[][] ODPaths;
 
+    /**
+     * Constructor for the root of the SegmentTree
+     * @param topology the topology on which the tree will be built
+     * @param maxSegments the maximum number of (node) segments of each SR-path
+     */
     public SegmentTreeRoot(Topology topology, int maxSegments) {
         this.nNodes = topology.nNodes;
         this.nEdges = topology.nEdges;
@@ -24,7 +33,16 @@ public class SegmentTreeRoot {
         this.leaves = new SegmentTreeLeaf[nNodes];
         this.ODPaths = new LinkedList[nNodes][nNodes];
 
-        this.edgeLoadPerPair = makeEdgeLoadPerPair(topology);
+        // TODO change to use the correct type
+        double [][][] temporary = makeEdgeLoadPerPair(topology);
+        this.edgeLoadPerPair = new float[nNodes][nNodes][nEdges];
+        for (int i1 = 0; i1 < nNodes; i1++) {
+            for (int i2 = 0; i2 < nNodes; i2++) {
+                for (int j1 = 0; j1 < nNodes; j1++) {
+                    this.edgeLoadPerPair[i1][i2][j1] = (float) temporary[i1][i2][j1];
+                }
+            }
+        }
 
         for (int originNode  = 0; originNode < nNodes; originNode++) {
             for (int destNode = 0; destNode < nNodes; destNode++) {
@@ -41,11 +59,11 @@ public class SegmentTreeRoot {
      * @param topology the topology of the network
      * @return edgeLoadPair[][][] as explained above
      */
-    public static float[][][] makeEdgeLoadPerPair(Topology topology) {
+    public static double[][][] makeEdgeLoadPerPair(Topology topology) {
 
         int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
-        float[][][] edgeLoadPerPair = new float[nNodes][nNodes][nEdges];
+        double[][][] edgeLoadPerPair = new double[nNodes][nNodes][nEdges];
 
         // Compute the shortest paths in the graph, from there we get the forwarding graph of each node
         ShortestPaths sp = new ShortestPaths(topology);
@@ -78,17 +96,17 @@ public class SegmentTreeRoot {
      * @param edgeLoadDest The current computed edge loads for the destination node dest.
      *                    It must already be computed for all nodes closer to dest than origin
      */
-    private static void fillEdgeUsage(int dest, int origin, float[][] edgeLoadDest, ShortestPaths sp, int nEdges) {
+    private static void fillEdgeUsage(int dest, int origin, double[][] edgeLoadDest, ShortestPaths sp, int nEdges) {
         int nSuccessors = sp.nSuccessors[dest][origin];
         for (int i = 0; i < nSuccessors; i++) {
             // Add the load on the direct edge to the new node
             int nextEdge = sp.successorEdges[dest][origin][i];
-            edgeLoadDest[origin][nextEdge] = 1.0f/nSuccessors;
+            edgeLoadDest[origin][nextEdge] = 1.0/nSuccessors;
             // Add the load when routing from nextNode to dest
             int nextNode = sp.successorNodes[dest][origin][i];
             if (nextNode != dest) {
                 for (int j = 0; j < nEdges; j++) {
-                    edgeLoadDest[origin][j] += 1.0f / nSuccessors * edgeLoadDest[nextNode][j];
+                    edgeLoadDest[origin][j] += 1.0 / nSuccessors * edgeLoadDest[nextNode][j];
                 }
             }
         }

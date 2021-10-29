@@ -2,7 +2,7 @@ package edu.repetita.solvers.sr.srpp;
 
 public class Pair<T,U> {
     private final T key;
-    private final U value;
+    private U value;
 
     public Pair(T key, U value) {
         this.key = key;
@@ -15,5 +15,9 @@ public class Pair<T,U> {
 
     public U getValue() {
         return this.value;
+    }
+
+    public void setValue(U newVal) {
+        this.value = newVal;
     }
 }
