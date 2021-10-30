@@ -12,6 +12,13 @@ public class EdgeLoadsFullArray implements Cloneable {
         this.edges = new double[size];
     }
 
+    public void add(EdgeLoadsFullArray other) {
+        int size = this.edges.length;
+        for (int i = 0; i < size; i++) {
+            this.edges[i] += other.edges[i];
+        }
+    }
+
     public static EdgeLoadsFullArray add(EdgeLoadsFullArray first, EdgeLoadsFullArray second) {
         int size = first.edges.length;
         EdgeLoadsFullArray result = new EdgeLoadsFullArray(size);

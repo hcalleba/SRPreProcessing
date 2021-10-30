@@ -1,7 +1,5 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
-// TODO make a branch on git with edge loads not stored for each SR path (should be longer computations, but might resolve memory problem on large instances)
-
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
 
 class SegmentTreeLeaf {
@@ -77,8 +75,7 @@ class SegmentTreeLeaf {
         SegmentTreeLeaf destLeaf = this.parent;
         SegmentTreeLeaf originLeaf = destLeaf.parent;
         while (originLeaf != null ) {
-            // TODO edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
-            edgeLoads = EdgeLoadsFullArray.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber), edgeLoads);
+            edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
             destLeaf = destLeaf.parent;
             originLeaf = originLeaf.parent;
         }

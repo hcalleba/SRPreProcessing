@@ -123,6 +123,7 @@ public class SegmentTreeRoot {
     private void addDepth(int depth) {
         EdgeLoadsFullArray edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
+            System.out.println("Adding originNode : "+originNode+"(Depth "+depth+")");
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
                 if (nextNode != originNode) {
                     edgeLoads = getODLoads(originNode, nextNode);
