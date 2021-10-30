@@ -2,6 +2,8 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 
 // TODO make a branch on git with edge loads not stored for each SR path (should be longer computations, but might resolve memory problem on large instances)
 
+import edu.repetita.solvers.sr.srpp.EdgeLoads;
+
 class SegmentTreeLeaf {
     public final int currentNodeNumber;
     public final int originNodeNumber;
@@ -12,7 +14,7 @@ class SegmentTreeLeaf {
 
     public SegmentTreeLeaf(int currentNodeNumber, SegmentTreeRoot root) {
         this.currentNodeNumber = currentNodeNumber;
-        this.originNodeNumber = currentNodeNumber; // TODO is this really useful ?
+        this.originNodeNumber = currentNodeNumber;
         this.parent = null;
         this.root = root;
         this.depth = 0;
@@ -25,7 +27,7 @@ class SegmentTreeLeaf {
         }
     }
 
-    public SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent) {
+    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent) {
         this.currentNodeNumber = currentNodeNumber;
         this.originNodeNumber = parent.originNodeNumber;
         this.parent = parent;
@@ -43,47 +45,61 @@ class SegmentTreeLeaf {
         root.addLeafToList(children[childNumber]);
     }
 
-    /* OK */
-    public float[] getEdgeLoads() {
-        float[] edgeLoads = new float[root.nEdges];
-        SegmentTreeLeaf destLeaf = this;
-        SegmentTreeLeaf originLeaf = this.parent;
+    /**
+     * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
+     * if the obtained path is dominated.
+     */
+    public void extendSRPath(int depth, EdgeLoads edgeLoads) {
+        if (this.depth < depth-1) { // Recursive call if not at the correct depth
+            for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
+                if (children[nextNode] != null) {
+                    children[nextNode].extendSRPath(depth, EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
+                }
+            }
+        }
+        else { // Try to add all possible nodes at the end
+            EdgeLoads result;
+            for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
+                if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
+                    result = EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                    if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
+                        addChild(lastNode);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
+     * if the obtained path is dominated.
+     */
+    protected void extendSRPath() {
+        EdgeLoads edgeLoads = getEdgeLoads();
+        EdgeLoads result;
+        for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
+            // TODO test if isOnPath really necessary
+            if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
+                result = EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                if (!root.testNewPathDomination(result, originNodeNumber, lastNode, depth+1)) {
+                    addChild(lastNode);
+                }
+            }
+        }
+    }
+
+    public EdgeLoads getEdgeLoads() {
+        EdgeLoads edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
+        SegmentTreeLeaf destLeaf = this.parent;
+        SegmentTreeLeaf originLeaf = destLeaf.parent;
         while (originLeaf != null ) {
-            float[] resultLoads = root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber);
-            addArcLoadArrays(edgeLoads, resultLoads, edgeLoads);
+            edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
             destLeaf = destLeaf.parent;
             originLeaf = originLeaf.parent;
         }
         return edgeLoads;
     }
 
-    /* OK */
-    public static void addArcLoadArrays(float[] firstArray, float[] secondArray, float[] resultArray) {
-        for (int i = 0; i < firstArray.length; i++) {
-            resultArray[i] = firstArray[i] + secondArray[i];
-        }
-    }
-
-    /* OK */
-    /**
-     * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
-     * if the obtained path is dominated.
-     */
-    protected void extendSRPath() {
-        // TODO test boolean for getEdgeLoads() to see if we need to create it
-        float[] edgeLoads = getEdgeLoads();
-        float[] container = new float[root.nEdges];
-        for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
-            // TODO test if isOnPath really necessary
-            if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                addArcLoadArrays(edgeLoads, root.getODLoads(currentNodeNumber, lastNode), container);
-                if (!root.testNewPathDomination(container, originNodeNumber, lastNode, depth+1)) {
-                    addChild(lastNode);
-                }
-            }
-        }
-    }
-    /* OK */
     /**
      * Tests if a node is already on the path of this leaf
      * @param nodeNumber
@@ -137,9 +153,4 @@ class SegmentTreeLeaf {
     protected void delete() {
         parent.children[currentNodeNumber] = null;
     }
-
-
-
-
-
 }

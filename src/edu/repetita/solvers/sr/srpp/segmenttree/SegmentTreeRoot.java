@@ -3,6 +3,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
+import edu.repetita.solvers.sr.srpp.EdgeLoads;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -15,7 +16,7 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    private final float[][][] edgeLoadPerPair;
+    private final EdgeLoads[][] edgeLoadPerPair;
     private final SegmentTreeLeaf[] leaves;
     // For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
     // having origin and destination respectively as origin and destination nodes
@@ -33,14 +34,11 @@ public class SegmentTreeRoot {
         this.leaves = new SegmentTreeLeaf[nNodes];
         this.ODPaths = new LinkedList[nNodes][nNodes];
 
-        // TODO change to use the correct type
         double [][][] temporary = makeEdgeLoadPerPair(topology);
-        this.edgeLoadPerPair = new float[nNodes][nNodes][nEdges];
-        for (int i1 = 0; i1 < nNodes; i1++) {
-            for (int i2 = 0; i2 < nNodes; i2++) {
-                for (int j1 = 0; j1 < nNodes; j1++) {
-                    this.edgeLoadPerPair[i1][i2][j1] = (float) temporary[i1][i2][j1];
-                }
+        this.edgeLoadPerPair = new EdgeLoads[nNodes][nNodes];
+        for (int destNode = 0; destNode < nNodes; destNode++) {
+            for (int originNode = 0; originNode < nNodes; originNode++) {
+                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoads(temporary[destNode][originNode]);
             }
         }
 
@@ -116,7 +114,7 @@ public class SegmentTreeRoot {
      * Creates all SR paths up to maxSegments for all origin destination pairs in the Topology.
      */
     public void createODPaths() {
-        // By default, depth 1 was already constructed by the constructor.
+        /* By default, depth 1 was already constructed by the constructor. */
         for (int depth = 2; depth <= maxSegments; depth++) {
             addDepth(depth);
         }
@@ -124,6 +122,18 @@ public class SegmentTreeRoot {
 
     // TODO try it out with a depth first search instead of iterating over the LinkedList
     private void addDepth(int depth) {
+        EdgeLoads edgeLoads;
+        for (int originNode = 0; originNode < nNodes; originNode++) {
+            for (int nextNode = 0; nextNode < nNodes; nextNode++) {
+                if (nextNode != originNode) {
+                    edgeLoads = getODLoads(originNode, nextNode);
+                    leaves[originNode].children[nextNode].extendSRPath(depth, edgeLoads);
+                }
+            }
+        }
+    }
+
+    /*private void addDepth(int depth) {
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int destNode = 0; destNode < nNodes; destNode++) {
                 for (SegmentTreeLeaf leaf : ODPaths[originNode][destNode]) {
@@ -131,12 +141,12 @@ public class SegmentTreeRoot {
                         leaf.extendSRPath();
                     }
                     else if (leaf.depth == depth) {
-                        // break;
+                        break;
                     }
                 }
             }
         }
-    }
+    }*/
 
     protected void addLeafToList(SegmentTreeLeaf leaf) {
         ODPaths[leaf.originNodeNumber][leaf.currentNodeNumber].add(leaf);
@@ -148,8 +158,8 @@ public class SegmentTreeRoot {
      * @param destNode the node to which the demand is routed
      * @return an array of floats corresponding to each edge's load
      */
-    protected float[] getODLoads(int originNode, int destNode) {
-        return edgeLoadPerPair[destNode][originNode];
+    protected EdgeLoads getODLoads(int originNode, int destNode) {
+        return edgeLoadPerPair[originNode][destNode];
     }
 
     /**
@@ -168,28 +178,28 @@ public class SegmentTreeRoot {
         return true;
     }
 
-    protected boolean testNewPathDomination(float[] newPathEdgeLoads, int originNode, int destNode, int depth) {
+    protected boolean testNewPathDomination(EdgeLoads newPathEdgeLoads, int originNode, int destNode, int depth) {
         // Loop over all non-dominated OD paths currently in the tree
         ListIterator<SegmentTreeLeaf> iterator = ODPaths[originNode][destNode].listIterator();
         SegmentTreeLeaf nextPath;
-        float[] nextPathLoads;
+        EdgeLoads nextPathLoads;
         while (iterator.hasNext()) {
             nextPath = iterator.next();
             nextPathLoads = nextPath.getEdgeLoads();
             if (nextPath.depth < depth) {
-                if (dominates(newPathEdgeLoads, nextPathLoads)) {
+                if (nextPathLoads.dominates(newPathEdgeLoads)) {
                     return true;
                 }
-                if (dominates(nextPathLoads, newPathEdgeLoads)) {
+                if (newPathEdgeLoads.dominates(nextPathLoads)) {
                     System.out.println("ERROR: shorter path dominated by longer path");
                     System.exit(1);
                 }
             }
             else {
-                if (dominates(newPathEdgeLoads, nextPathLoads)) {
+                if (nextPathLoads.dominates(newPathEdgeLoads)) {
                     return true;
                 }
-                if (dominates(nextPathLoads, newPathEdgeLoads)) {
+                if (newPathEdgeLoads.dominates(nextPathLoads)) {
                     // Remove from LinkedList
                     iterator.remove();
                     // Remove from tree
@@ -198,22 +208,6 @@ public class SegmentTreeRoot {
             }
         }
         return false;
-    }
-
-    /**
-     * Compares two arrays of edge loads and returns true if maybeDominatedLoads is dominated by maybeDominatingLoads
-     * @param maybeDominatedLoads the edge loads that could be dominated
-     * @param maybeDominatingLoads the edge loads that could be dominating
-     * @return true if newEdgeLoads dominated by oldEdgeLoads, false otherwise
-     */
-    private static boolean dominates(float[] maybeDominatedLoads, float[] maybeDominatingLoads) {
-        // If it has 1 edge that is not worse, then it cannot be dominated
-        for (int edgeNumber = 0; edgeNumber < maybeDominatedLoads.length; edgeNumber++) {
-            if (maybeDominatedLoads[edgeNumber] + 0.00001 < maybeDominatingLoads[edgeNumber]) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public int[][] getODPaths(int originNode, int destNode) {
