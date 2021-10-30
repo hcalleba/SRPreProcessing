@@ -3,7 +3,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -16,7 +16,7 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    private final EdgeLoadsFullArray[][] edgeLoadPerPair;
+    private final EdgeLoadsLinkedList[][] edgeLoadPerPair;
     private final SegmentTreeLeaf[] leaves;
     // For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
     // having origin and destination respectively as origin and destination nodes
@@ -35,10 +35,10 @@ public class SegmentTreeRoot {
         this.ODPaths = new LinkedList[nNodes][nNodes];
 
         double [][][] temporary = makeEdgeLoadPerPair(topology);
-        this.edgeLoadPerPair = new EdgeLoadsFullArray[nNodes][nNodes];
+        this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
         for (int destNode = 0; destNode < nNodes; destNode++) {
             for (int originNode = 0; originNode < nNodes; originNode++) {
-                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsFullArray(temporary[destNode][originNode]);
+                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsLinkedList(temporary[destNode][originNode]);
             }
         }
 
@@ -121,9 +121,9 @@ public class SegmentTreeRoot {
     }
 
     private void addDepth(int depth) {
-        EdgeLoadsFullArray edgeLoads;
+        EdgeLoadsLinkedList edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
-            System.out.println("Adding originNode : "+originNode+"(Depth "+depth+")");
+            System.out.println("Adding originNode : "+originNode+" (Depth "+depth+")");
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
                 if (nextNode != originNode) {
                     edgeLoads = getODLoads(originNode, nextNode);
@@ -143,7 +143,7 @@ public class SegmentTreeRoot {
      * @param destNode the node to which the demand is routed
      * @return an array of floats corresponding to each edge's load
      */
-    protected EdgeLoadsFullArray getODLoads(int originNode, int destNode) {
+    protected EdgeLoadsLinkedList getODLoads(int originNode, int destNode) {
         return edgeLoadPerPair[originNode][destNode];
     }
 
@@ -163,11 +163,11 @@ public class SegmentTreeRoot {
         return true;
     }
 
-    protected boolean testNewPathDomination(EdgeLoadsFullArray newPathEdgeLoads, int originNode, int destNode, int depth) {
+    protected boolean testNewPathDomination(EdgeLoadsLinkedList newPathEdgeLoads, int originNode, int destNode, int depth) {
         // Loop over all non-dominated OD paths currently in the tree
         ListIterator<SegmentTreeLeaf> iterator = ODPaths[originNode][destNode].listIterator();
         SegmentTreeLeaf nextPath;
-        EdgeLoadsFullArray nextPathLoads;
+        EdgeLoadsLinkedList nextPathLoads;
         while (iterator.hasNext()) {
             nextPath = iterator.next();
             nextPathLoads = nextPath.getEdgeLoads();
@@ -204,46 +204,4 @@ public class SegmentTreeRoot {
         }
         return paths;
     }
-
-    /*
-    public int[][] getAllPaths() {
-        int numberOfPaths = 0;
-        for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
-            numberOfPaths += leaves[branchNumber].getNumberOfPaths();
-        }
-        int[][] allPaths = new int[numberOfPaths][];  // Array containing all the paths
-        int[] allPathsIndex = new int[1];  // Array of size 1 to pass int by reference
-        // Integer instead of int to pass by reference
-        int[] currentPath = new int[20+1];  // Array containing the nodes of the path we are currently processing
-        // TODO replace 20+1 by I think depth+1 (need to check)
-        int currentPathIndex = 0;  // Index to remember how many nodes are in the currentPath
-        // Depth-first search in the tree to get the all the SR-paths
-        for (int branchNumber = 0; branchNumber < nNodes; branchNumber++) {
-            // Add the origin (branch) node as first element of the current path
-            currentPath[currentPathIndex] = branchNumber;
-            currentPathIndex++;
-            for (int leafNumber = 0; leafNumber < nNodes; leafNumber++) {
-                SegmentTreeLeaf nextLeaf = leaves[branchNumber].getLeaf(leafNumber);
-                if (nextLeaf != null) {
-                    depthFirstCreation(allPaths, allPathsIndex, currentPath, currentPathIndex, nextLeaf);
-                }
-            }
-            currentPathIndex--;
-        }
-        return allPaths;
-    }
-
-    private void depthFirstCreation(int[][] allPaths, int[] allPathsIndex, int[] currentPath, int currentPathIndex, SegmentTreeLeaf currentLeaf) {
-        // We add the path corresponding to the current leaf to allPaths
-        currentPath[currentPathIndex] = currentLeaf.currentNodeNumber;
-        currentPathIndex++;
-        allPaths[allPathsIndex[0]] = new int[currentPathIndex];
-        System.arraycopy(currentPath, 0, allPaths[allPathsIndex[0]], 0, currentPathIndex);
-        allPathsIndex[0]++;
-        for (int leafNumber = 0; leafNumber < nNodes; leafNumber++) {
-            if (currentLeaf.getChild(leafNumber) != null) {
-                depthFirstCreation(allPaths, allPathsIndex, currentPath, currentPathIndex, currentLeaf.getChild(leafNumber));
-            }
-        }
-    }*/
 }

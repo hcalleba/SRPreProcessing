@@ -1,3 +1,5 @@
+// Warning this class cannot be used as such since it does not have in place addition
+
 package edu.repetita.solvers.sr.srpp.edgeloads;
 
 /**

@@ -1,6 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 
 class SegmentTreeLeaf {
     public final int currentNodeNumber;
@@ -49,19 +49,19 @@ class SegmentTreeLeaf {
      * @param depth
      * @param edgeLoads
      */
-    public void extendSRPath(int depth, EdgeLoadsFullArray edgeLoads) {
+    public void extendSRPath(int depth, EdgeLoadsLinkedList edgeLoads) {
         if (this.depth < depth-1) { // Recursive call if not at the correct depth
             for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
                 if (children[nextNode] != null) {
-                    children[nextNode].extendSRPath(depth, EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
+                    children[nextNode].extendSRPath(depth, EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
                 }
             }
         }
         else { // Try to add all possible nodes at the end
-            EdgeLoadsFullArray result;
+            EdgeLoadsLinkedList result;
             for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
                 if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                    result = EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                    result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
                     if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
                         addChild(lastNode);
                     }
@@ -70,8 +70,8 @@ class SegmentTreeLeaf {
         }
     }
 
-    public EdgeLoadsFullArray getEdgeLoads() {
-        EdgeLoadsFullArray edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
+    public EdgeLoadsLinkedList getEdgeLoads() {
+        EdgeLoadsLinkedList edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
         SegmentTreeLeaf destLeaf = this.parent;
         SegmentTreeLeaf originLeaf = destLeaf.parent;
         while (originLeaf != null ) {
