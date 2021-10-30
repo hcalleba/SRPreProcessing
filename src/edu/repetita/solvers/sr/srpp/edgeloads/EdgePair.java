@@ -1,6 +1,6 @@
-package edu.repetita.solvers.sr.srpp;
+package edu.repetita.solvers.sr.srpp.edgeloads;
 
-public class EdgePair {
+public class EdgePair implements Cloneable {
     private final int key;
     private double load;
 
@@ -19,5 +19,10 @@ public class EdgePair {
 
     public void setLoad(double load) {
         this.load = load;
+    }
+
+    @Override
+    public EdgePair clone() {
+        return new EdgePair(key, load);
     }
 }

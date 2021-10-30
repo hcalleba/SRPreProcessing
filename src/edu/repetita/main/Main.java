@@ -6,7 +6,6 @@ import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.sr.SRPP;
-import edu.repetita.solvers.sr.srpp.EdgeLoads;
 
 import java.util.*;
 

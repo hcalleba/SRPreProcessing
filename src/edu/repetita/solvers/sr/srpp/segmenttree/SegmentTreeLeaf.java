@@ -2,7 +2,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 
 // TODO make a branch on git with edge loads not stored for each SR path (should be longer computations, but might resolve memory problem on large instances)
 
-import edu.repetita.solvers.sr.srpp.EdgeLoads;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
 
 class SegmentTreeLeaf {
     public final int currentNodeNumber;
@@ -48,20 +48,22 @@ class SegmentTreeLeaf {
     /**
      * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
      * if the obtained path is dominated.
+     * @param depth
+     * @param edgeLoads
      */
-    public void extendSRPath(int depth, EdgeLoads edgeLoads) {
+    public void extendSRPath(int depth, EdgeLoadsFullArray edgeLoads) {
         if (this.depth < depth-1) { // Recursive call if not at the correct depth
             for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
                 if (children[nextNode] != null) {
-                    children[nextNode].extendSRPath(depth, EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
+                    children[nextNode].extendSRPath(depth, EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
                 }
             }
         }
         else { // Try to add all possible nodes at the end
-            EdgeLoads result;
+            EdgeLoadsFullArray result;
             for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
                 if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                    result = EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                    result = EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
                     if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
                         addChild(lastNode);
                     }
@@ -70,30 +72,13 @@ class SegmentTreeLeaf {
         }
     }
 
-    /**
-     * Tries to extend the current leaf with SR paths if possible by trying to add every node at the end and testing
-     * if the obtained path is dominated.
-     */
-    protected void extendSRPath() {
-        EdgeLoads edgeLoads = getEdgeLoads();
-        EdgeLoads result;
-        for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
-            // TODO test if isOnPath really necessary
-            if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                result = EdgeLoads.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
-                if (!root.testNewPathDomination(result, originNodeNumber, lastNode, depth+1)) {
-                    addChild(lastNode);
-                }
-            }
-        }
-    }
-
-    public EdgeLoads getEdgeLoads() {
-        EdgeLoads edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
+    public EdgeLoadsFullArray getEdgeLoads() {
+        EdgeLoadsFullArray edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
         SegmentTreeLeaf destLeaf = this.parent;
         SegmentTreeLeaf originLeaf = destLeaf.parent;
         while (originLeaf != null ) {
-            edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
+            // TODO edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
+            edgeLoads = EdgeLoadsFullArray.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber), edgeLoads);
             destLeaf = destLeaf.parent;
             originLeaf = originLeaf.parent;
         }

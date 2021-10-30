@@ -41,6 +41,8 @@ public class SRPP extends SRSolver {
     @Override
     public void solve(Setting setting, long milliseconds) {
 
+        long start = System.currentTimeMillis();
+
         Topology topology = setting.getTopology();
         int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
@@ -49,6 +51,9 @@ public class SRPP extends SRSolver {
 
         SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments);
         root.createODPaths();
+
+        long finish = System.currentTimeMillis();
+        long timeElapsed = finish - start;
 
         // It is also possible to get all paths through root.getAllPaths(), this would be slightly faster, but the paths
         // would not be ordered  in a convenient way. This is why root.createODPaths() is used
@@ -64,6 +69,7 @@ public class SRPP extends SRSolver {
             }
         }
         RepetitaWriter.writeToPathFile(builder.toString());
+        System.out.println("Time elapsed : " + timeElapsed);
         System.out.println("End of SRPP solve function");
     }
 
