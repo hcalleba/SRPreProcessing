@@ -86,3 +86,10 @@ For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW
 10. Multithreading could probably be implemented without too much hassle and could make the algorithm go faster.
 
 11. Comparison between different EdgeLoads objects -> https://www.overleaf.com/read/crqfdzxcdrxt
+
+12. Could maybe try to use "non-hollow" datastructures for the children of a leaf, BUT no O(1) accesses anymore to a child :/
+
+13. Could make SegmentTreeRoot a singleton ? Or at least make a static getter such as not to have it stored in EVERY leaf
+
+14. Instead of "creating a new SR-path" and testing if it is dominated by any previous path, we could take a previous
+path and test if it will dominate any path that we could add at this iteration.
