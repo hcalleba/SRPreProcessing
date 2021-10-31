@@ -48,12 +48,16 @@ opposite edges would have the load), yet both these paths are in the tree which 
 Possible solutions
     - Consider only paths U-...-V where U<V
     - Combine edges (i,j) and (j,i) together which would also halve the amount of edges :)
+        - By the way I can without changing the algorithm, halve the amount of edges by combining them without doing
+        anything to the paths (to verify).
 
 
 4. Some topologies have redundant edges (see for example Iris here https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW3A
 where nodes 10,21 and 22 on the left of the graph do not add anything to the graph since their only access is through node 29).
 A preprocessing of the graph would in this case probably increase the performance of the algorithm.
 (I think it was implemented in TOTEM and one of the thesis (Aubry or Hartert talked about it))
+    - Beware that for the ILP, all paths should be given, and the original topology should be used since the "redundant"
+    nodes might want to take another path to be routed to the first "non-redundant" node
 
 
 5. If it happened that a x-SR could dominate y-SR path (y<x), then this would cause some disruption in the tree.
@@ -80,3 +84,12 @@ For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW
 
 
 10. Multithreading could probably be implemented without too much hassle and could make the algorithm go faster.
+
+11. Comparison between different EdgeLoads objects -> https://www.overleaf.com/read/crqfdzxcdrxt
+
+12. Could maybe try to use "non-hollow" datastructures for the children of a leaf, BUT no O(1) accesses anymore to a child :/
+
+13. Could make SegmentTreeRoot a singleton ? Or at least make a static getter such as not to have it stored in EVERY leaf
+
+14. Instead of "creating a new SR-path" and testing if it is dominated by any previous path, we could take a previous
+path and test if it will dominate any path that we could add at this iteration.
