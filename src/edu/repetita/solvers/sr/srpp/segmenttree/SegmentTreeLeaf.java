@@ -1,6 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
 
 class SegmentTreeLeaf {
     public final int currentNodeNumber;
@@ -31,7 +31,11 @@ class SegmentTreeLeaf {
         this.parent = parent;
         this.root = parent.root;
         this.depth = parent.depth+1;
-        this.children = new SegmentTreeLeaf[root.nNodes];
+        if (depth == root.maxSegments) {
+            this.children = null;
+        } else {
+            this.children = new SegmentTreeLeaf[root.nNodes];
+        }
     }
 
     /**
@@ -49,19 +53,19 @@ class SegmentTreeLeaf {
      * @param depth
      * @param edgeLoads
      */
-    public void extendSRPath(int depth, EdgeLoadsLinkedList edgeLoads) {
+    public void extendSRPath(int depth, EdgeLoadsFullArray edgeLoads) {
         if (this.depth < depth-1) { // Recursive call if not at the correct depth
             for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
                 if (children[nextNode] != null) {
-                    children[nextNode].extendSRPath(depth, EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
+                    children[nextNode].extendSRPath(depth, EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
                 }
             }
         }
         else { // Try to add all possible nodes at the end
-            EdgeLoadsLinkedList result;
+            EdgeLoadsFullArray result;
             for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
                 if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                    result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                    result = EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
                     if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
                         addChild(lastNode);
                     }
@@ -70,8 +74,8 @@ class SegmentTreeLeaf {
         }
     }
 
-    public EdgeLoadsLinkedList getEdgeLoads() {
-        EdgeLoadsLinkedList edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
+    public EdgeLoadsFullArray getEdgeLoads() {
+        EdgeLoadsFullArray edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
         SegmentTreeLeaf destLeaf = this.parent;
         SegmentTreeLeaf originLeaf = destLeaf.parent;
         while (originLeaf != null ) {

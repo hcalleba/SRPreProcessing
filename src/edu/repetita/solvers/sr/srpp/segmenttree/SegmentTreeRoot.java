@@ -3,7 +3,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -16,7 +16,7 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    private final EdgeLoadsLinkedList[][] edgeLoadPerPair;
+    private final EdgeLoadsFullArray[][] edgeLoadPerPair;
     private final SegmentTreeLeaf[] leaves;
     // For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
     // having origin and destination respectively as origin and destination nodes
@@ -35,10 +35,10 @@ public class SegmentTreeRoot {
         this.ODPaths = new LinkedList[nNodes][nNodes];
 
         double [][][] temporary = makeEdgeLoadPerPair(topology);
-        this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
+        this.edgeLoadPerPair = new EdgeLoadsFullArray[nNodes][nNodes];
         for (int destNode = 0; destNode < nNodes; destNode++) {
             for (int originNode = 0; originNode < nNodes; originNode++) {
-                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsLinkedList(temporary[destNode][originNode]);
+                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsFullArray(temporary[destNode][originNode]);
             }
         }
 
@@ -121,9 +121,9 @@ public class SegmentTreeRoot {
     }
 
     private void addDepth(int depth) {
-        EdgeLoadsLinkedList edgeLoads;
+        EdgeLoadsFullArray edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
-            System.out.println("Adding originNode : "+originNode+" (Depth "+depth+")");
+            System.err.println("Adding originNode : "+originNode+" (Depth "+depth+")");
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
                 if (nextNode != originNode) {
                     edgeLoads = getODLoads(originNode, nextNode);
@@ -143,7 +143,7 @@ public class SegmentTreeRoot {
      * @param destNode the node to which the demand is routed
      * @return an array of floats corresponding to each edge's load
      */
-    protected EdgeLoadsLinkedList getODLoads(int originNode, int destNode) {
+    protected EdgeLoadsFullArray getODLoads(int originNode, int destNode) {
         return edgeLoadPerPair[originNode][destNode];
     }
 
@@ -163,11 +163,11 @@ public class SegmentTreeRoot {
         return true;
     }
 
-    protected boolean testNewPathDomination(EdgeLoadsLinkedList newPathEdgeLoads, int originNode, int destNode, int depth) {
+    protected boolean testNewPathDomination(EdgeLoadsFullArray newPathEdgeLoads, int originNode, int destNode, int depth) {
         // Loop over all non-dominated OD paths currently in the tree
         ListIterator<SegmentTreeLeaf> iterator = ODPaths[originNode][destNode].listIterator();
         SegmentTreeLeaf nextPath;
-        EdgeLoadsLinkedList nextPathLoads;
+        EdgeLoadsFullArray nextPathLoads;
         while (iterator.hasNext()) {
             nextPath = iterator.next();
             nextPathLoads = nextPath.getEdgeLoads();
@@ -175,10 +175,15 @@ public class SegmentTreeRoot {
                 if (nextPathLoads.dominates(newPathEdgeLoads)) {
                     return true;
                 }
-                if (newPathEdgeLoads.dominates(nextPathLoads)) {
-                    System.out.println("ERROR: shorter path dominated by longer path");
-                    System.exit(1);
-                }
+                /*
+                 We do not test the case where a longer path might dominate a shorter path.
+                 From experience, this never happens, and we have the intuition that it simply cannot happen.
+                 Longer paths can indeed dominate shorter paths, but we think that in such a case, the shorter path
+                 would already have been dominated by another path of same size or shorter, meaning that the path would
+                 not be in the tree in the first place.
+                 Furthermore, because of the tree structure, deleting a dominated shorter path would be rather difficult
+                 and we decided to not implement this as even if this case happens, it is extremely rare.
+                */
             }
             else {
                 if (nextPathLoads.dominates(newPathEdgeLoads)) {

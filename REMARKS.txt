@@ -84,3 +84,5 @@ For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW
 
 
 10. Multithreading could probably be implemented without too much hassle and could make the algorithm go faster.
+
+11. Comparison between different EdgeLoads objects -> https://www.overleaf.com/read/crqfdzxcdrxt
