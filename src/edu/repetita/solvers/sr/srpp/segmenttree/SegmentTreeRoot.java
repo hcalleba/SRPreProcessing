@@ -17,8 +17,9 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    private final EdgeLoadsFullArray[][] edgeLoadPerPair;
-    private final SegmentTreeLeaf[] leaves;
+    final EdgeLoadsFullArray[][] edgeLoadPerPair;
+    private SegmentTreeLeaf[] leaves;
+    public final double[][] trafficMatrix;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
      having origin and destination respectively as origin and destination nodes
@@ -30,12 +31,13 @@ public class SegmentTreeRoot {
      * @param topology the topology on which the tree will be built
      * @param maxSegments the maximum number of (node) segments of each SR-path
      */
-    public SegmentTreeRoot(Topology topology, int maxSegments) {
+    public SegmentTreeRoot(Topology topology, int maxSegments, double[][] trafficMatrix) {
         this.nNodes = topology.nNodes;
         this.nEdges = topology.nEdges;
         this.maxSegments = maxSegments;
         this.leaves = new SegmentTreeLeaf[nNodes];
         this.ODPaths = new LinkedList[nNodes][nNodes];
+        this.trafficMatrix = trafficMatrix;
 
         double [][][] tempLoads = makeEdgeLoadPerPair(topology);
         this.edgeLoadPerPair = new EdgeLoadsFullArray[nNodes][nNodes];
@@ -49,7 +51,6 @@ public class SegmentTreeRoot {
             for (int destNode = 0; destNode < nNodes; destNode++) {
                 ODPaths[originNode][destNode] = new LinkedList<>();
             }
-            leaves[originNode] = new SegmentTreeLeaf(originNode, this);
         }
     }
 
@@ -62,7 +63,7 @@ public class SegmentTreeRoot {
      * @param topology the topology of the network
      * @return edgeLoadPair[][][] as explained above
      */
-    private static double[][][] makeEdgeLoadPerPair(Topology topology) {
+    public static double[][][] makeEdgeLoadPerPair(Topology topology) {
 
         int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
@@ -119,7 +120,10 @@ public class SegmentTreeRoot {
      * Creates all SR paths up to maxSegments for all (origin, destination) pairs in the Topology.
      */
     public void createODPaths() {
-        /* By default, depth 1 was already constructed by the constructor. */
+        /* We create the 0-th depth and the first will be created from the 0-th depth constructor */
+        for (int i = 0; i < nNodes; i++) {
+            leaves[i] = new SegmentTreeLeaf(i, this);
+        }
         for (int depth = 2; depth <= maxSegments; depth++) {
             addDepth(depth);
         }
@@ -133,8 +137,8 @@ public class SegmentTreeRoot {
     private void addDepth(int depth) {
         EdgeLoadsFullArray edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
-            System.err.println("Adding originNode : "+originNode+" (Depth "+depth+")");
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
+                // TODO if depth == maxSegments, then do not add nextNode if no demand
                 if (nextNode != originNode) {
                     edgeLoads = getODLoads(originNode, nextNode);
                     leaves[originNode].children[nextNode].extendSRPath(depth, edgeLoads);
@@ -243,5 +247,32 @@ public class SegmentTreeRoot {
             index++;
         }
         return paths;
+    }
+
+    /**
+     * Returns an object EdgeLoadFullArray containing the loads on each edge for an SR-path composed of the nodes in the
+     * array path
+     * @param path array containing the node segments of which the SR-path is composed
+     * @return the edge loads of the requested path.
+     */
+    public EdgeLoadsFullArray getEdgeLoads(int[] path) {
+        if (path.length == 2) {
+            return getODLoads(path[0], path[1]);
+        }
+        else {
+            EdgeLoadsFullArray res = EdgeLoadsFullArray.add(edgeLoadPerPair[path[0]][path[1]], edgeLoadPerPair[path[1]][path[2]]);
+            for (int i = 3; i < path.length; i++) {
+                res.add(edgeLoadPerPair[i-1][i]);
+            }
+            return res;
+        }
+    }
+
+    /**
+     * Frees the memory by "deleting" all leaves in the SR-tree
+     * All information about the paths will therefore be lost
+     */
+    public void freeMemory() {
+        this.leaves = null;
     }
 }

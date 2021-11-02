@@ -189,4 +189,32 @@ final public class RepetitaParser {
 
         return solverFeatures;
     }
+
+    public static ArrayList<int[]> parseSRPaths(String filename) throws IOException {
+        try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
+            Iterator<String> lines = lineStream.iterator();
+
+            // SR-paths
+            ArrayList<int[]> paths = new ArrayList<int[]>();
+
+            String line;
+            // Demands info: label src dest bw
+            while (lines.hasNext()) {
+                line = lines.next();
+                if (line.isEmpty()) break;
+
+                line = line.replace ("[", "");
+                line = line.replace ("]", "");
+                String[] SRNodes = line.split (",");
+
+                paths.add(new int[SRNodes.length]);
+                for (int i=0; i < SRNodes.length; i++) {
+                    paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+                }
+            }
+            return paths;
+        } catch (Exception e) { // let it crash
+            throw e;
+        }
+    }
 }

@@ -97,12 +97,12 @@ public class Main {
     public static void main(String[] args) throws Exception {
         String graphFilename = null;
         String demandsFilename = null;
+        String inpathsFilename = null;
+        boolean outpaths = false;
         int verboseLevel = 0;
         boolean help = false;
         int maxSegments = 2;
-
-        String solverChoice = "tabuLS";
-        String scenarioChoice = "SingleSolverRun";
+        String scenarioChoice = "full";
 
         // parse command line arguments
         int i = 0;
@@ -116,6 +116,10 @@ public class Main {
                     print_doc();
                     return;
 
+                case "-scenario":
+                    scenarioChoice = args[++i];
+                    break;
+
                 case "-graph":
                     graphFilename = args[++i];
                     break;
@@ -124,7 +128,12 @@ public class Main {
                     demandsFilename = args[++i];
                     break;
 
+                case "-inpaths":
+                    inpathsFilename = args[++i];
+                    break;
+
                 case "-outpaths":
+                    outpaths = true;
                     RepetitaWriter.setOutpathsFilename(args[++i]);
                     break;
 
@@ -153,7 +162,11 @@ public class Main {
         // check that the strictly necessary information has been provided in input (after having creating the storage)
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename == null) printHelp("Needs an input demands file");
+        if (demandsFilename == null && !scenarioChoice.equals("createPaths")) printHelp("Needs an input demands file");
+        if (scenarioChoice.equals("createPaths") && !outpaths) printHelp("Needs an output file for the paths");
+
+        if (!scenarioChoice.equals("full") && !scenarioChoice.equals("createPaths")) printHelp("Unknown scenario : " + scenarioChoice);
+
 
         // Set the settings according to command line parameters
         Setting setting = new Setting();
@@ -161,8 +174,9 @@ public class Main {
         setting.setDemandsFilename(demandsFilename);
         setting.setMaxSegments(maxSegments);
 
-        // FROM HERE ON I WILL DO THE TESTS !
-        Solver solver = new SRPP();
+        // Solve the problem for the topology
+        // TODO add scenario to only create the SR-paths
+        Solver solver = new SRPP(inpathsFilename, scenarioChoice.equals("createPaths"), outpaths);
         solver.solve(setting,0);
     }
 }

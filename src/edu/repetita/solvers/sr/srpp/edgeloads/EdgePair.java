@@ -4,7 +4,7 @@ public class EdgePair implements Cloneable {
     private final int key;
     private double load;
 
-    EdgePair(int key, double load) {
+    public EdgePair(int key, double load) {
         this.key = key;
         this.load = load;
     }

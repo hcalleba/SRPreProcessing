@@ -1,7 +1,9 @@
 package edu.repetita.solvers.sr.srpp.edgeloads;
 
-public class EdgeLoadsFullArray implements Cloneable {
-    private final double[] edges;
+import java.util.Iterator;
+
+public class EdgeLoadsFullArray implements Cloneable, Iterable<EdgePair> {
+    protected final double[] edges;
     private static final double PRECISION = 0.000001;
 
     public EdgeLoadsFullArray(double[] edgeLoads) {
@@ -42,5 +44,31 @@ public class EdgeLoadsFullArray implements Cloneable {
         EdgeLoadsFullArray result = new EdgeLoadsFullArray(size);
         System.arraycopy(this.edges, 0, result.edges, 0, size);
         return result;
+    }
+
+    @Override
+    public Iterator<EdgePair> iterator() {
+        return new IteratorFullArray(this);
+    }
+}
+
+class IteratorFullArray implements Iterator<EdgePair> {
+    int index;
+    EdgeLoadsFullArray edgeLoads;
+
+
+    public IteratorFullArray(EdgeLoadsFullArray edgeLoads) {
+        index = 0;
+        this.edgeLoads = edgeLoads;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index < edgeLoads.edges.length;
+    }
+
+    @Override
+    public EdgePair next() {
+        return new EdgePair(index, edgeLoads.edges[index++]);
     }
 }

@@ -1,12 +1,13 @@
 package edu.repetita.solvers.sr.srpp.edgeloads;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.ListIterator;
 
 /**
  * Class containing a set of edges and a (non-zero) load for each of the present edges
  */
-public class EdgeLoadsLinkedList implements Cloneable {
+public class EdgeLoadsLinkedList implements Cloneable, Iterable {
 
     private final LinkedList<EdgePair> edges;
     private static final double PRECISION = 0.000001;
@@ -142,5 +143,10 @@ public class EdgeLoadsLinkedList implements Cloneable {
             result.edges.add(pair.clone());
         }
         return result;
+    }
+
+    @Override
+    public Iterator<EdgePair> iterator() {
+        return edges.iterator();
     }
 }
