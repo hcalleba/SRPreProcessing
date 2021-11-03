@@ -23,17 +23,19 @@ public class Main {
         ArrayList<String> options = new ArrayList<>();
         ArrayList<String> descriptions = new ArrayList<>();
 
-        options.addAll(Arrays.asList("h","doc","graph","demands","demandchanges",
-                "t","outpaths","out","verbose"));
+        options.addAll(Arrays.asList("h","doc","scenario","graph","demands","t","outpaths","inpaths",
+                "out","verbose"));
 
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",
                 "only prints the README.txt file",
+                "the scenario: 'SRPP' for full preprocessing and solving; 'full' for solving with all the possible" +
+                        " paths; loadFromFile to load SR-paths from a file and solve the problem with them",
                 "file.graph",
                 "file.demands",
-                "list of file.demands",
                 "maximum time in seconds allowed to the solver",
-                "name of the file collecting information of paths",
+                "name of the file to which all the preprocessed SR-paths are written",
+                "name of the file to load SR-paths from (useful with loafFromFile scenario)",
                 "name of the file collecting all the information (standard output by default)",
                 "level of debugging (default 0, only results reported)"
         ));
@@ -98,11 +100,11 @@ public class Main {
         String graphFilename = null;
         String demandsFilename = null;
         String inpathsFilename = null;
+        String scenarioChoice = "SRPP";
         boolean outpaths = false;
         int verboseLevel = 0;
         boolean help = false;
         int maxSegments = 2;
-        String scenarioChoice = "full";
 
         // parse command line arguments
         int i = 0;
@@ -162,10 +164,11 @@ public class Main {
         // check that the strictly necessary information has been provided in input (after having creating the storage)
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename == null && !scenarioChoice.equals("createPaths")) printHelp("Needs an input demands file");
-        if (scenarioChoice.equals("createPaths") && !outpaths) printHelp("Needs an output file for the paths");
-
-        if (!scenarioChoice.equals("full") && !scenarioChoice.equals("createPaths")) printHelp("Unknown scenario : " + scenarioChoice);
+        if (demandsFilename == null) printHelp("Needs an input demands file");
+        if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile")) {
+            printHelp("Invalid scenario choice : "+scenarioChoice);
+        }
+        if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");
 
 
         // Set the settings according to command line parameters
@@ -175,8 +178,7 @@ public class Main {
         setting.setMaxSegments(maxSegments);
 
         // Solve the problem for the topology
-        // TODO add scenario to only create the SR-paths
-        Solver solver = new SRPP(inpathsFilename, scenarioChoice.equals("createPaths"), outpaths);
+        Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
         solver.solve(setting,0);
     }
 }

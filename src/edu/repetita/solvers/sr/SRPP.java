@@ -27,15 +27,15 @@ import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
 public class SRPP extends SRSolver {
 
     private long solveTime = 0;
-    boolean createOnlyPaths;
     boolean writeOutPaths;
     String inpathsFilename;
+    String scenarioChoice;
 
-    public SRPP(String inpathsFilename, boolean createPaths, boolean writeOutPaths) {
+    public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
         super();
         this.inpathsFilename = inpathsFilename;
-        this.createOnlyPaths = createPaths;
         this.writeOutPaths = writeOutPaths;
+        this.scenarioChoice = scenarioChoice;
     }
 
     @Override
@@ -54,30 +54,38 @@ public class SRPP extends SRSolver {
                 "gives the reduced set of paths to an ILP as parameter";
     }
 
+    /**
+     * Solves the unique SR problem with the given setting using preprocessing for the SR-paths and then an ILP to solve
+     * the problem with the SR-paths resulting of the preprocessing
+     * @param setting the settings of the problem
+     * @param milliseconds supposedly the maximum runtime, but is not implemented
+     */
     @Override
     public void solve(Setting setting, long milliseconds) {
 
         long start = System.currentTimeMillis();
 
         Topology topology = setting.getTopology();
-        int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
         Demands demands = setting.getDemands();
         int maxSegments = setting.getMaxSegments();
 
         SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments, Demands.toTrafficMatrix(demands, nNodes));
-
         ArrayList<int[]> paths = new ArrayList<int[]>();
-        if (inpathsFilename == null) {  // Create SR-paths
+        /* Preprocess the SR-paths */
+        if (scenarioChoice.equals("SRPP")) {
             root.createODPaths();
             for (int originNumber = 0; originNumber < nNodes; originNumber++) {
                 for (int destNumber = 0; destNumber < nNodes; destNumber++) {
-                    Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
+                    if (root.trafficMatrix[originNumber][destNumber] > 0) {
+                        Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
+                    }
                 }
             }
             root.freeMemory();
         }
-        else {  // Load SR-paths from file
+        /* Load SR-paths from file if one is given */
+        else if (scenarioChoice.equals("loadFromFile")){
             try {
                 paths = RepetitaParser.parseSRPaths(inpathsFilename);
             } catch (IOException e) {
@@ -85,40 +93,75 @@ public class SRPP extends SRSolver {
                 System.exit(1);
             }
         }
-
-        if (inpathsFilename == null) {
-            StringBuilder builder = new StringBuilder();
-            for (int[] path : paths) {
-                builder.append(Arrays.toString(path));
-                builder.append("\n");
+        /* Simply create all possible SR-paths */
+        else if (scenarioChoice.equals("full")){
+            for (int depth = 2; depth <= root.maxSegments+1; depth++) {
+                int[] path = new int[depth];
+                for (int originNode = 0; originNode < nNodes; originNode++) {
+                    path[0] = originNode;
+                    addSegment(path, 1, nNodes, paths);
+                }
             }
-            RepetitaWriter.writeToPathFile(builder.toString());
         }
 
-        if (createOnlyPaths) {  // We do not solve the ILP
-            return;
-        }
+        solveTime = System.currentTimeMillis() - start;
+        System.out.println("Preprocessing time : " + (double)solveTime/1000 + " seconds");
 
-        /* Here we solve the ILP */
-        if (!createOnlyPaths) {
-            solveILP(paths, root, topology);
-        }
+        /*
+         Use here preprocessedPathsToFile() in case one would like to get all preprocessed i.e. all non-dominated paths
+         of size <= root.maxSegments to a file.
+         Beware that only paths for which a demand exists between an OD pair will be written out.
+        */
 
+        /* We solve the ILP */
+        start = System.currentTimeMillis();
+        solveILP(paths, root, topology);
 
+        long finish = System.currentTimeMillis() - start;
+        solveTime += finish;
 
-
-
-
-        long finish = System.currentTimeMillis();
-        long timeElapsed = finish - start;
-
-
-
-
-
+        System.out.println("ILP solve time : " + (double)finish/1000 + " seconds");
         System.out.println("Topology : " + setting.getTopologyFilename());
         System.out.println("Segments : " + setting.getMaxSegments());
-        System.out.println("Time elapsed : " + (double)timeElapsed/1000 + " seconds");
+        System.out.println("Total time elapsed : " + (double)solveTime/1000 + " seconds");
+    }
+
+    /**
+     * Function that writes the preprocessed paths to a file
+     * @param paths the preprocessed SR-paths
+     * @param filename the name of the file to which we should write the SR-paths
+     */
+    private void preprocessedPathsToFile(ArrayList<int[]> paths, String filename) {
+        StringBuilder builder = new StringBuilder();
+        for (int[] path : paths) {
+            builder.append(Arrays.toString(path));
+            builder.append("\n");
+        }
+        RepetitaWriter.writeToFile(builder.toString(), filename);
+    }
+
+    /**
+     * helper function used to enumerate all possible SR-paths (without them being preprocessed)
+     * @param path array to which we are currently writing the path
+     * @param idx index which we are processing in path
+     * @param nNodes the number of nodes of the topology
+     * @param paths an arraylist to which we should add a new path once it is created
+     */
+    private void addSegment(int[] path, int idx, int nNodes, ArrayList<int[]> paths) {
+        if (idx == path.length) {
+            paths.add(path.clone());
+            return;
+        }
+        for (int nextNode = 0; nextNode < nNodes; nextNode++) {
+            boolean inside = false;
+            for (int i = 0; i < idx; i++) {
+                inside = inside || path[i]==nextNode;
+            }
+            if (!inside) {
+                path[idx] = nextNode;
+                addSegment(path, idx + 1, nNodes, paths);
+            }
+        }
     }
 
     @Override
@@ -126,11 +169,18 @@ public class SRPP extends SRSolver {
         return solveTime;
     }
 
+    /**
+     * Creates the ILP and solves it based on the information given
+     * @param paths list of all SR-paths that could potentially be used in a solution
+     * @param root the root of the segmentTree, it contains the trafficMatrix and edge usage for every OSPF routing
+     *             between any OD pair
+     * @param topology the topology of the graph, used values are: nNodes, nEdges, and edgeCapacity[]
+     */
     private void solveILP (ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
         try {
             /* Create empty environment, set options, and start */
             GRBEnv env = new GRBEnv(true);
-            env.set("logFile", "mip1.log");
+            env.set("logFile", "out/gurobi.log");
             env.start();
 
             /* Create empty model */
@@ -163,7 +213,7 @@ public class SRPP extends SRSolver {
             for (int i = 0; i < topology.nNodes; i++) {
                 for (int j = 0; j < topology.nNodes; j++) {
                     if(root.trafficMatrix[i][j] > 0) {
-                        model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique SR-path-" + i + "-" + j);
+                        model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
                     }
                 }
             }
@@ -175,12 +225,10 @@ public class SRPP extends SRSolver {
             for (int i = 0; i < paths.size(); i++) {
                 int[] path = paths.get(i);
                 EdgeLoadsFullArray edgeLoads = root.getEdgeLoads(path);
-                Iterator<EdgePair> it = edgeLoads.iterator();
-                while (it.hasNext()) {
-                    EdgePair edgePair = it.next();
+                for (EdgePair edgePair : edgeLoads) {
                     if (edgePair.getLoad() != 0) {
                         uMaxExpr[edgePair.getKey()].addTerm(
-                                root.trafficMatrix[path[0]][path[path.length-1]], SRPaths[i]);
+                                root.trafficMatrix[path[0]][path[path.length - 1]], SRPaths[i]);
                     }
                 }
             }
@@ -191,13 +239,17 @@ public class SRPP extends SRSolver {
 
             /* Optimize model */
             model.optimize();
-            model.write("mip2.sol");
 
-            /* PRINT RESULT
+            /* Write solution to file */
+            StringBuilder builder = new StringBuilder();
+            builder.append("Each row corresponds to an SR-path used for routing in the form: \n");
+            builder.append("[originNode, firstSegmentNode, ..., destinationNode]\n");
             for (int i=0; i < paths.size(); i++) {
-                System.out.println(SRPaths[i].get(GRB.StringAttr.VarName)+ " " +SRPaths[i].get(GRB.DoubleAttr.X));
-            }*/
-
+                if (SRPaths[i].get(GRB.DoubleAttr.X) != 0.0) {
+                    builder.append(Arrays.toString(paths.get(i))).append("\n");
+                }
+            }
+            RepetitaWriter.writeToPathFile(builder.toString());
 
             /* Dispose of model and environment */
             model.dispose();

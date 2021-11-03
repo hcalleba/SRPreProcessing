@@ -102,15 +102,21 @@ class SegmentTreeLeaf {
      * @return The EdgeLoadsFullArray object with the corresponding edge loads
      */
     public EdgeLoadsFullArray getEdgeLoads() {
-        EdgeLoadsFullArray edgeLoads = root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber).clone();
-        SegmentTreeLeaf destLeaf = this.parent;
-        SegmentTreeLeaf originLeaf = destLeaf.parent;
-        while (originLeaf != null ) {
-            edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
-            destLeaf = destLeaf.parent;
-            originLeaf = originLeaf.parent;
+        if (parent.parent == null) {
+            return root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber);
         }
-        return edgeLoads;
+        else {
+            EdgeLoadsFullArray edgeLoads = EdgeLoadsFullArray.add(root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber),
+                    root.getODLoads(parent.parent.currentNodeNumber, parent.currentNodeNumber));
+            SegmentTreeLeaf destLeaf = parent.parent;
+            SegmentTreeLeaf originLeaf = destLeaf.parent;
+            while (originLeaf != null) {
+                edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
+                destLeaf = destLeaf.parent;
+                originLeaf = originLeaf.parent;
+            }
+            return edgeLoads;
+        }
     }
 
     /**

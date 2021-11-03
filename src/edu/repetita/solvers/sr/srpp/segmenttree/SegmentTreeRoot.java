@@ -138,7 +138,6 @@ public class SegmentTreeRoot {
         EdgeLoadsFullArray edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
-                // TODO if depth == maxSegments, then do not add nextNode if no demand
                 if (nextNode != originNode) {
                     edgeLoads = getODLoads(originNode, nextNode);
                     leaves[originNode].children[nextNode].extendSRPath(depth, edgeLoads);
@@ -216,7 +215,6 @@ public class SegmentTreeRoot {
                 */
             }
             else {
-                // TODO if new path dominates other path, it cannot be dominated anymore, but can still dominate other of same size
                 if (nextPathLoads.dominates(newPathEdgeLoads)) {
                     return true;
                 }

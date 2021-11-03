@@ -205,7 +205,7 @@ final public class RepetitaParser {
 
                 line = line.replace ("[", "");
                 line = line.replace ("]", "");
-                String[] SRNodes = line.split (",");
+                String[] SRNodes = line.split (", ");
 
                 paths.add(new int[SRNodes.length]);
                 for (int i=0; i < SRNodes.length; i++) {

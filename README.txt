@@ -5,7 +5,7 @@ It is slightly modified to make it lighter and executable  under windows;
     solver.
 
 To execute:
-gurobi.jar needs to be added to the lib folder. (TODO, is not necessary yet)
+gurobi.jar needs to be added to the lib folder.
 commons-lang is also required but should be present if IntellIJ is used due to the SRPreProc.iml file (TODO use maven to facilitate the dependencies)
 
 The program is executed in the following way:
