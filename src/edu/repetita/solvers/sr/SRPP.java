@@ -6,7 +6,7 @@ import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.SRSolver;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
 import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
 
@@ -224,8 +224,8 @@ public class SRPP extends SRSolver {
             }
             for (int i = 0; i < paths.size(); i++) {
                 int[] path = paths.get(i);
-                EdgeLoadsFullArray edgeLoads = root.getEdgeLoads(path);
-                for (EdgePair edgePair : edgeLoads) {
+                EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
+                for (EdgePair edgePair : (Iterable<EdgePair>) edgeLoads) {
                     if (edgePair.getLoad() != 0) {
                         uMaxExpr[edgePair.getKey()].addTerm(
                                 root.trafficMatrix[path[0]][path[path.length - 1]], SRPaths[i]);

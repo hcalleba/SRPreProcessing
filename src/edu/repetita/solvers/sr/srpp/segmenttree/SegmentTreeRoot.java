@@ -3,7 +3,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -17,7 +17,7 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    final EdgeLoadsFullArray[][] edgeLoadPerPair;
+    final EdgeLoadsLinkedList[][] edgeLoadPerPair;
     private SegmentTreeLeaf[] leaves;
     public final double[][] trafficMatrix;
     /*
@@ -40,10 +40,10 @@ public class SegmentTreeRoot {
         this.trafficMatrix = trafficMatrix;
 
         double [][][] tempLoads = makeEdgeLoadPerPair(topology);
-        this.edgeLoadPerPair = new EdgeLoadsFullArray[nNodes][nNodes];
+        this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
         for (int destNode = 0; destNode < nNodes; destNode++) {
             for (int originNode = 0; originNode < nNodes; originNode++) {
-                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsFullArray(tempLoads[destNode][originNode]);
+                this.edgeLoadPerPair[originNode][destNode] = new EdgeLoadsLinkedList(tempLoads[destNode][originNode]);
             }
         }
 
@@ -135,12 +135,11 @@ public class SegmentTreeRoot {
      *              Note that to add a depth x, all depths from 2 ... x-1 should already have been added previously.
      */
     private void addDepth(int depth) {
-        EdgeLoadsFullArray edgeLoads;
+        EdgeLoadsLinkedList edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
                 if (nextNode != originNode) {
-                    edgeLoads = getODLoads(originNode, nextNode);
-                    leaves[originNode].children[nextNode].extendSRPath(depth, edgeLoads);
+                    leaves[originNode].children[nextNode].extendSRPath(depth);
                 }
             }
         }
@@ -158,9 +157,9 @@ public class SegmentTreeRoot {
      * Returns the loads on each arc when there is a demand of 1 from originNode to destNode
      * @param originNode the node from which the demand originates
      * @param destNode the node to which the demand is routed
-     * @return an EdgeLoadsFullArray object containing the loads of each edge
+     * @return an EdgeLoadsLinkedList object containing the loads of each edge
      */
-    protected EdgeLoadsFullArray getODLoads(int originNode, int destNode) {
+    protected EdgeLoadsLinkedList getODLoads(int originNode, int destNode) {
         return edgeLoadPerPair[originNode][destNode];
     }
 
@@ -192,11 +191,11 @@ public class SegmentTreeRoot {
      * @param depth The depth of the path we should test domination for.
      * @return true if the path is dominated by another path, false if it is non-dominated.
      */
-    protected boolean testNewPathDomination(EdgeLoadsFullArray newPathEdgeLoads, int originNode, int destNode, int depth) {
+    protected boolean testNewPathDomination(EdgeLoadsLinkedList newPathEdgeLoads, int originNode, int destNode, int depth) {
         /* Loop over all non-dominated OD paths currently in the tree */
         ListIterator<SegmentTreeLeaf> iterator = ODPaths[originNode][destNode].listIterator();
         SegmentTreeLeaf nextPath;
-        EdgeLoadsFullArray nextPathLoads;
+        EdgeLoadsLinkedList nextPathLoads;
         while (iterator.hasNext()) {
             nextPath = iterator.next();
             nextPathLoads = nextPath.getEdgeLoads();
@@ -253,12 +252,12 @@ public class SegmentTreeRoot {
      * @param path array containing the node segments of which the SR-path is composed
      * @return the edge loads of the requested path.
      */
-    public EdgeLoadsFullArray getEdgeLoads(int[] path) {
+    public EdgeLoadsLinkedList getEdgeLoads(int[] path) {
         if (path.length == 2) {
             return getODLoads(path[0], path[1]);
         }
         else {
-            EdgeLoadsFullArray res = EdgeLoadsFullArray.add(edgeLoadPerPair[path[0]][path[1]], edgeLoadPerPair[path[1]][path[2]]);
+            EdgeLoadsLinkedList res = EdgeLoadsLinkedList.add(edgeLoadPerPair[path[0]][path[1]], edgeLoadPerPair[path[1]][path[2]]);
             for (int i = 3; i < path.length; i++) {
                 res.add(edgeLoadPerPair[i-1][i]);
             }
