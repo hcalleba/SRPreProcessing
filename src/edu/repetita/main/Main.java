@@ -34,7 +34,7 @@ public class Main {
                 "file.graph",
                 "file.demands",
                 "maximum time in seconds allowed to the solver",
-                "name of the file to which all the preprocessed SR-paths are written",
+                "name of the file to which resulting SR-paths should be written to",
                 "name of the file to load SR-paths from (useful with loafFromFile scenario)",
                 "name of the file collecting all the information (standard output by default)",
                 "level of debugging (default 0, only results reported)"
