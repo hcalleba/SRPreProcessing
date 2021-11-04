@@ -17,14 +17,14 @@ public class SegmentTreeRoot {
     public final int nNodes;
     public final int nEdges;
     public final int maxSegments;
-    final EdgeLoadsLinkedList[][] edgeLoadPerPair;
     private SegmentTreeLeaf[] leaves;
+    public final EdgeLoadsLinkedList[][] edgeLoadPerPair;
     public final double[][] trafficMatrix;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
      having origin and destination respectively as origin and destination nodes
     */
-    private final LinkedList<SegmentTreeLeaf>[][] ODPaths;
+    private LinkedList<SegmentTreeLeaf>[][] ODPaths;
 
     /**
      * Constructor for the root of the SegmentTree
@@ -135,7 +135,6 @@ public class SegmentTreeRoot {
      *              Note that to add a depth x, all depths from 2 ... x-1 should already have been added previously.
      */
     private void addDepth(int depth) {
-        EdgeLoadsLinkedList edgeLoads;
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
                 if (nextNode != originNode) {
@@ -269,7 +268,13 @@ public class SegmentTreeRoot {
      * Frees the memory by "deleting" all leaves in the SR-tree
      * All information about the paths will therefore be lost
      */
-    public void freeMemory() {
+    public void freeLeavesMemory() {
         this.leaves = null;
+        this.ODPaths = null;
+        /*
+         Call to garbage collector, usually not recommended as the JVM might ignore it, but works much better with it
+         in this case
+        */
+        System.gc();
     }
 }

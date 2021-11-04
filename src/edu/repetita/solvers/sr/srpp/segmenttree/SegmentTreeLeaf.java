@@ -1,7 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 
 /**
  * Class corresponding to a leaf of the tree containing all SR-paths.

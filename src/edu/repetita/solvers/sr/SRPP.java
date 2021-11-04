@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 
 import gurobi.*;
 
@@ -71,47 +70,50 @@ public class SRPP extends SRSolver {
         int maxSegments = setting.getMaxSegments();
 
         SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments, Demands.toTrafficMatrix(demands, nNodes));
-        ArrayList<int[]> paths = new ArrayList<int[]>();
+        ArrayList<int[]> paths = new ArrayList<>();
         /* Preprocess the SR-paths */
-        if (scenarioChoice.equals("SRPP")) {
-            root.createODPaths();
-            for (int originNumber = 0; originNumber < nNodes; originNumber++) {
-                for (int destNumber = 0; destNumber < nNodes; destNumber++) {
-                    if (root.trafficMatrix[originNumber][destNumber] > 0) {
-                        Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
+        switch (scenarioChoice) {
+            case "SRPP":
+                root.createODPaths();
+                for (int originNumber = 0; originNumber < nNodes; originNumber++) {
+                    for (int destNumber = 0; destNumber < nNodes; destNumber++) {
+                        if (root.trafficMatrix[originNumber][destNumber] > 0) {
+                            Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
+                        }
                     }
                 }
-            }
-            root.freeMemory();
-        }
-        /* Load SR-paths from file if one is given */
-        else if (scenarioChoice.equals("loadFromFile")){
-            try {
-                paths = RepetitaParser.parseSRPaths(inpathsFilename);
-            } catch (IOException e) {
-                e.printStackTrace();
-                System.exit(1);
-            }
-        }
-        /* Simply create all possible SR-paths */
-        else if (scenarioChoice.equals("full")){
-            for (int depth = 2; depth <= root.maxSegments+1; depth++) {
-                int[] path = new int[depth];
-                for (int originNode = 0; originNode < nNodes; originNode++) {
-                    path[0] = originNode;
-                    addSegment(path, 1, nNodes, paths);
+                root.freeLeavesMemory();
+                break;
+            /* Load SR-paths from file if one is given */
+            case "loadFromFile":
+                try {
+                    paths = RepetitaParser.parseSRPaths(inpathsFilename);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    System.exit(1);
                 }
-            }
+                break;
+            /* Simply create all possible SR-paths */
+            case "full":
+                for (int depth = 2; depth <= root.maxSegments + 1; depth++) {
+                    int[] path = new int[depth];
+                    for (int originNode = 0; originNode < nNodes; originNode++) {
+                        path[0] = originNode;
+                        addSegment(path, 1, nNodes, paths);
+                    }
+                }
+                break;
         }
 
         solveTime = System.currentTimeMillis() - start;
         System.out.println("Preprocessing time : " + (double)solveTime/1000 + " seconds");
 
         /*
-         Use here preprocessedPathsToFile() in case one would like to get all preprocessed i.e. all non-dominated paths
-         of size <= root.maxSegments to a file.
+         Use here preprocessedPathsToFilepaths, fileName) in case one would like to get all preprocessed i.e. all
+         non-dominated paths of size <= root.maxSegments to a file.
          Beware that only paths for which a demand exists between an OD pair will be written out.
         */
+
 
         /* We solve the ILP */
         start = System.currentTimeMillis();
@@ -123,7 +125,7 @@ public class SRPP extends SRSolver {
         System.out.println("ILP solve time : " + (double)finish/1000 + " seconds");
         System.out.println("Topology : " + setting.getTopologyFilename());
         System.out.println("Segments : " + setting.getMaxSegments());
-        System.out.println("Total time elapsed : " + (double)solveTime/1000 + " seconds");
+        System.out.println("Total time elapsed : " + (double)solveTime/1000 + " seconds\n");
     }
 
     /**
@@ -225,7 +227,7 @@ public class SRPP extends SRSolver {
             for (int i = 0; i < paths.size(); i++) {
                 int[] path = paths.get(i);
                 EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
-                for (EdgePair edgePair : (Iterable<EdgePair>) edgeLoads) {
+                for (EdgePair edgePair : edgeLoads) {
                     if (edgePair.getLoad() != 0) {
                         uMaxExpr[edgePair.getKey()].addTerm(
                                 root.trafficMatrix[path[0]][path[path.length - 1]], SRPaths[i]);
