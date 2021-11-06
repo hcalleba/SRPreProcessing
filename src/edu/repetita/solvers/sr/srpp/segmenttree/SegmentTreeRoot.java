@@ -1,5 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
+import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
@@ -31,13 +32,17 @@ public class SegmentTreeRoot {
      * @param topology the topology on which the tree will be built
      * @param maxSegments the maximum number of (node) segments of each SR-path
      */
-    public SegmentTreeRoot(Topology topology, int maxSegments, double[][] trafficMatrix) {
+    public SegmentTreeRoot(Topology topology, int maxSegments, Demands demands) {
         this.nNodes = topology.nNodes;
         this.nEdges = topology.nEdges;
         this.maxSegments = maxSegments;
         this.leaves = new SegmentTreeLeaf[nNodes];
         this.ODPaths = new LinkedList[nNodes][nNodes];
-        this.trafficMatrix = trafficMatrix;
+        if (demands != null) {
+            this.trafficMatrix = Demands.toTrafficMatrix(demands, nNodes);
+        } else {
+            this.trafficMatrix = null;
+        }
 
         double [][][] tempLoads = makeEdgeLoadPerPair(topology);
         this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
