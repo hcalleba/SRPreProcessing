@@ -2,6 +2,7 @@ package edu.repetita.io;
 
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
+import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
 import edu.repetita.utils.datastructures.Conversions;
 
 import java.io.IOException;
@@ -190,7 +191,7 @@ final public class RepetitaParser {
         return solverFeatures;
     }
 
-    public static ArrayList<int[]> parseSRPaths(String filename) throws IOException {
+    public static ArrayList<int[]> parseSRPaths(String filename, SegmentTreeRoot root) throws IOException {
         try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
             Iterator<String> lines = lineStream.iterator();
 
@@ -207,9 +208,12 @@ final public class RepetitaParser {
                 line = line.replace ("]", "");
                 String[] SRNodes = line.split (", ");
 
-                paths.add(new int[SRNodes.length]);
-                for (int i=0; i < SRNodes.length; i++) {
-                    paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+                /* Only add path if there is demand between nodes */
+                if (root.trafficMatrix[Integer.parseInt(SRNodes[0])][Integer.parseInt(SRNodes[SRNodes.length-1])] > 0) {
+                    paths.add(new int[SRNodes.length]);
+                    for (int i = 0; i < SRNodes.length; i++) {
+                        paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+                    }
                 }
             }
             return paths;

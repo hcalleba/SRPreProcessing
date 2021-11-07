@@ -29,12 +29,15 @@ public class Main {
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",
                 "only prints the README.txt file",
-                "the scenario: 'SRPP' for full preprocessing and solving; 'full' for solving with all the possible" +
-                        " paths; loadFromFile to load SR-paths from a file and solve the problem with them",
+                "the scenario:\n" +
+                        "\t'SRPP' for full preprocessing and solving;\n" +
+                        "\t'full' for solving with all the possible paths;\n" +
+                        "\t'loadFromFile' to load SR-paths from a file and solve the problem with them;\n" +
+                        "\t'preprocess' to generate all non-dominated paths and print them to a file without solving the ILP;",
                 "file.graph",
                 "file.demands",
                 "maximum time in seconds allowed to the solver",
-                "name of the file to which resulting SR-paths should be written to",
+                "name of the file to which resulting SR-paths should be written to (or non-dominated paths with preprocess scenario)",
                 "name of the file to load SR-paths from (useful with loafFromFile scenario)",
                 "name of the file collecting all the information (standard output by default)",
                 "level of debugging (default 0, only results reported)"
@@ -161,23 +164,26 @@ public class Main {
             i++;
         }
 
-        // check that the strictly necessary information has been provided in input (after having creating the storage)
+        /* check that the strictly necessary information has been provided in input */
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename == null) printHelp("Needs an input demands file");
-        if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile")) {
+        if (demandsFilename == null && !scenarioChoice.equals("preprocess")) printHelp("Needs an input demands file (or preprocess scenario)");
+        if (outpaths == false) printHelp("Need an output file name (-outpaths)");
+        if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile") && !scenarioChoice.equals("preprocess")) {
             printHelp("Invalid scenario choice : "+scenarioChoice);
         }
         if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");
 
 
-        // Set the settings according to command line parameters
+        /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
-        setting.setDemandsFilename(demandsFilename);
+        if (!scenarioChoice.equals("preprocess")) {
+            setting.setDemandsFilename(demandsFilename);
+        }
         setting.setMaxSegments(maxSegments);
 
-        // Solve the problem for the topology
+        /* Solve the problem for the topology */
         Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
         solver.solve(setting,0);
     }

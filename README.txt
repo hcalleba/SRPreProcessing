@@ -23,6 +23,8 @@ The three available scenarios are:
                    be saved into a file to be reused later without going through the process of recomputing non-dominated paths.
     -full: Here we do not preprocess the SR-paths and simply give the N * N-1 * ... * N-maxSegments-1 possible paths directly to the ILP solver.
            This scenario serves as a comparison with SRPP
+    -preprocess: Generates all non-dominated paths of the topology, and writes them to the -outpaths file. The ILP program is not solved here, and
+                 therefore, no demand file is needed. If a demand file is given, it is simply ignored.
 
 
 

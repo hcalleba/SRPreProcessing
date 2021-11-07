@@ -7,7 +7,7 @@ import java.util.ListIterator;
 /**
  * Class containing a set of edges and a (non-zero) load for each of the present edges
  */
-public class EdgeLoadsLinkedList implements Cloneable, Iterable {
+public class EdgeLoadsLinkedList implements Cloneable, Iterable<EdgePair> {
 
     private final LinkedList<EdgePair> edges;
     private static final double PRECISION = 0.000001;

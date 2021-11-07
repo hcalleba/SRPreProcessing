@@ -1,6 +1,6 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsFullArray;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 
 /**
  * Class corresponding to a leaf of the tree containing all SR-paths.
@@ -16,6 +16,7 @@ class SegmentTreeLeaf {
     public final SegmentTreeRoot root;
     public final int depth;
     protected final SegmentTreeLeaf[] children;
+    protected final EdgeLoadsLinkedList edgeLoads;
 
     /**
      * Constructor of a leaf. This constructor is called from the root and therefore creates an "origin leaf" for the
@@ -30,10 +31,11 @@ class SegmentTreeLeaf {
         this.root = root;
         this.depth = 0;
         this.children = new SegmentTreeLeaf[root.nNodes];
+        this.edgeLoads = null;
         // Create all 1-SR (OSPF) paths
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
             if (nodeNumber != currentNodeNumber) {
-                addChild(nodeNumber);
+                addChild(nodeNumber, root.edgeLoadPerPair[currentNodeNumber][nodeNumber]);
             }
         }
     }
@@ -43,7 +45,7 @@ class SegmentTreeLeaf {
      * @param currentNodeNumber The node number attributed to this leaf
      * @param parent The leaf that will become the parent of the newly created leaf (should in principle Zalso be the one calling this constructor)
      */
-    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent) {
+    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads) {
         this.currentNodeNumber = currentNodeNumber;
         this.originNodeNumber = parent.originNodeNumber;
         this.parent = parent;
@@ -54,14 +56,15 @@ class SegmentTreeLeaf {
         } else {
             this.children = new SegmentTreeLeaf[root.nNodes];
         }
+        this.edgeLoads = edgeLoads;
     }
 
     /**
      * Adds a child with node number = childNumber to the current leaf
      * @param childNumber the node number in the topology of the newly added child
      */
-    private void addChild(int childNumber) {
-        children[childNumber] = new SegmentTreeLeaf(childNumber, this);
+    private void addChild(int childNumber, EdgeLoadsLinkedList edgeLoads) {
+        children[childNumber] = new SegmentTreeLeaf(childNumber, this, edgeLoads);
         root.addLeafToList(children[childNumber]);
     }
 
@@ -72,24 +75,22 @@ class SegmentTreeLeaf {
      * or
      * 2. calling recursively this function on all of its children.
      * @param depth The depth of the new paths we want to try to add
-     * @param edgeLoads The edgeLoads of this leaf (this is done to avoid having to recompute the same parts of an
-     *                  SR-path over and over)
      */
-    protected void extendSRPath(int depth, EdgeLoadsFullArray edgeLoads) {
+    protected void extendSRPath(int depth) {
         if (this.depth < depth-1) { // Recursive call if not at the correct depth
             for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
                 if (children[nextNode] != null) {
-                    children[nextNode].extendSRPath(depth, EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, nextNode)));
+                    children[nextNode].extendSRPath(depth);
                 }
             }
         }
         else { // Try to add all possible nodes at the end
-            EdgeLoadsFullArray result;
+            EdgeLoadsLinkedList result;
             for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
                 if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                    result = EdgeLoadsFullArray.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
+                    result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
                     if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
-                        addChild(lastNode);
+                        addChild(lastNode, result);
                     }
                 }
             }
@@ -97,26 +98,12 @@ class SegmentTreeLeaf {
     }
 
     /**
-     * Returns an EdgeLoadsFullArray object corresponding to the edge loads if a demand of 1 was routed along "this"
+     * Returns an EdgeLoadsLinkedList object corresponding to the edge loads if a demand of 1 was routed along "this"
      * leaf's SR-path
-     * @return The EdgeLoadsFullArray object with the corresponding edge loads
+     * @return The EdgeLoadsLinkedList object with the corresponding edge loads
      */
-    public EdgeLoadsFullArray getEdgeLoads() {
-        if (parent.parent == null) {
-            return root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber);
-        }
-        else {
-            EdgeLoadsFullArray edgeLoads = EdgeLoadsFullArray.add(root.getODLoads(parent.currentNodeNumber, this.currentNodeNumber),
-                    root.getODLoads(parent.parent.currentNodeNumber, parent.currentNodeNumber));
-            SegmentTreeLeaf destLeaf = parent.parent;
-            SegmentTreeLeaf originLeaf = destLeaf.parent;
-            while (originLeaf != null) {
-                edgeLoads.add(root.getODLoads(originLeaf.currentNodeNumber, destLeaf.currentNodeNumber));
-                destLeaf = destLeaf.parent;
-                originLeaf = originLeaf.parent;
-            }
-            return edgeLoads;
-        }
+    public EdgeLoadsLinkedList getEdgeLoads() {
+        return edgeLoads;
     }
 
     /**
