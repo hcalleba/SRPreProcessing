@@ -104,6 +104,7 @@ public class Main {
         String demandsFilename = null;
         String inpathsFilename = null;
         String scenarioChoice = "SRPP";
+        double timeLimit = 0.0;
         boolean outpaths = false;
         int verboseLevel = 0;
         boolean help = false;
@@ -131,6 +132,10 @@ public class Main {
 
                 case "-demands":
                     demandsFilename = args[++i];
+                    break;
+
+                case "-t":
+                    timeLimit = Double.parseDouble(args[++i]);
                     break;
 
                 case "-inpaths":
@@ -168,7 +173,7 @@ public class Main {
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
         if (demandsFilename == null && !scenarioChoice.equals("preprocess")) printHelp("Needs an input demands file (or preprocess scenario)");
-        if (outpaths == false) printHelp("Need an output file name (-outpaths)");
+        if (!outpaths) printHelp("Need an output file name (-outpaths)");
         if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile") && !scenarioChoice.equals("preprocess")) {
             printHelp("Invalid scenario choice : "+scenarioChoice);
         }
@@ -185,6 +190,6 @@ public class Main {
 
         /* Solve the problem for the topology */
         Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
-        solver.solve(setting,0);
+        solver.solve(setting, (long) timeLimit * 1000);
     }
 }

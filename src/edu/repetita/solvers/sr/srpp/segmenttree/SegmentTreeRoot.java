@@ -124,13 +124,16 @@ public class SegmentTreeRoot {
     /**
      * Creates all SR paths up to maxSegments for all (origin, destination) pairs in the Topology.
      */
-    public void createODPaths() {
+    public void createODPaths(long endTime) {
         /* We create the 0-th depth and the first will be created from the 0-th depth constructor */
         for (int i = 0; i < nNodes; i++) {
             leaves[i] = new SegmentTreeLeaf(i, this);
         }
         for (int depth = 2; depth <= maxSegments; depth++) {
-            addDepth(depth);
+            if (System.currentTimeMillis() > endTime) {
+                return;
+            }
+            addDepth(depth, endTime);
         }
     }
 
@@ -139,9 +142,12 @@ public class SegmentTreeRoot {
      * @param depth integer representing the new depth to be added; a depth of x means that we will add all x-SR paths.
      *              Note that to add a depth x, all depths from 2 ... x-1 should already have been added previously.
      */
-    private void addDepth(int depth) {
+    private void addDepth(int depth, long endTime) {
         for (int originNode = 0; originNode < nNodes; originNode++) {
             for (int nextNode = 0; nextNode < nNodes; nextNode++) {
+                if (System.currentTimeMillis() > endTime) {
+                    return;
+                }
                 if (nextNode != originNode) {
                     leaves[originNode].children[nextNode].extendSRPath(depth);
                 }

@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.*;
 
 import gurobi.*;
 
@@ -30,6 +31,7 @@ public class SRPP extends SRSolver {
     boolean writeOutPaths;
     String inpathsFilename;
     String scenarioChoice;
+    double uMax = 0.0;
 
     public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
         super();
@@ -68,47 +70,60 @@ public class SRPP extends SRSolver {
         Demands demands = setting.getDemands();
         int maxSegments = setting.getMaxSegments();
 
-
         /* preprocessing */
-        long start = System.currentTimeMillis();
         SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments, demands);
         ArrayList<int[]> paths = new ArrayList<>();
+
         /* Preprocess the SR-paths */
-        paths = preprocessTopology(topology.nNodes, root, paths);
-        preprocessingTime = System.currentTimeMillis() - start;
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime+milliseconds;
+        int nbPaths = 0;
+        nbPaths = preprocessTopology(topology.nNodes, root, paths, startTime+milliseconds);
+        preprocessingTime = System.currentTimeMillis() - startTime;
 
-        /*
-         Use here preprocessedPathsToFilepaths, fileName) in case one would like to get all preprocessed i.e. all
-         non-dominated paths of size <= root.maxSegments to a file.
-         Beware that only paths for which a demand exists between an OD pair will be written out.
-        */
-
-        /* Solving of the ILP */
-        start = System.currentTimeMillis();
-        double result = 0.0;
-        if (!scenarioChoice.equals("preprocess")) {
-            result = solveILP(paths, root, topology);
+        /* Solve the ILP or write the non-dominated paths to -outpaths file */
+        if (System.currentTimeMillis() < endTime) {
+            startTime = System.currentTimeMillis();
+            if (scenarioChoice.equals("preprocess")) {
+                preprocessedPathsToFile(paths);
+            } else {
+                uMax = solveILP(paths, root, topology, endTime);
+            }
+            ILPSolveTime = System.currentTimeMillis() - startTime;
         }
-        ILPSolveTime = System.currentTimeMillis() - start;
 
         /* Log output */
-        System.out.println("Preprocessing time : " + (double)preprocessingTime/1000 + " seconds");
-        System.out.println("ILP solve time : " + (double)ILPSolveTime/1000 + " seconds");
-        System.out.println("Topology : " + setting.getTopologyFilename());
-        System.out.println("Segments : " + setting.getMaxSegments());
-        System.out.println("Objective value (uMax) : " + result);
-        System.out.println("Total time elapsed : " + (double)(ILPSolveTime+preprocessingTime)/1000 + " seconds\n");
+        RepetitaWriter.appendToOutput("OK");
+        RepetitaWriter.appendToOutput("Preprocessing time : " + (double)preprocessingTime/1000 + " seconds");
+        RepetitaWriter.appendToOutput("ILP solve time : " + (double)ILPSolveTime/1000 + " seconds");
+        RepetitaWriter.appendToOutput("Total time elapsed : " + (double)(ILPSolveTime+preprocessingTime)/1000 + " seconds");
+        RepetitaWriter.appendToOutput("Total number of paths after preprocessing : " + nbPaths);
+        RepetitaWriter.appendToOutput("Objective value (uMax) : " + uMax + "\n");
     }
 
-    private ArrayList<int[]> preprocessTopology(int nNodes, SegmentTreeRoot root, ArrayList<int[]> paths) {
+    /**
+     * Preprocesses the topology to generate all non-dominated paths, all paths or load paths from a file depending
+     * on the scenario
+     * @param nNodes the number of nodes in the topology
+     * @param root the root of the SegmentTree
+     * @param paths an arraylist that will serve as container for all the resulting paths
+     * @return the number of generated paths in case of preprocessing, 0 otherwise (if all demands strictly positive,
+     * this is equal to the size of paths)
+     */
+    private int preprocessTopology(int nNodes, SegmentTreeRoot root, ArrayList<int[]> paths, long endTime) {
+        int nbPaths = 0;
         switch (scenarioChoice) {
             case "SRPP":
             case "preprocess":
-                root.createODPaths();
+                root.createODPaths(endTime);
+                if (System.currentTimeMillis() > endTime) {
+                    return -1;
+                }
                 for (int originNumber = 0; originNumber < nNodes; originNumber++) {
                     for (int destNumber = 0; destNumber < nNodes; destNumber++) {
                         /* if preprocess we keep all paths, otherwise we only keep OD-paths for which there is a
                         positive demand between the nodes */
+                        nbPaths += root.getODPaths(originNumber, destNumber).length;
                         if (scenarioChoice.equals("preprocess")) {
                             if (originNumber != destNumber) {
                                 Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
@@ -142,21 +157,20 @@ public class SRPP extends SRSolver {
                 }
                 break;
         }
-        return paths;
+        return nbPaths;
     }
 
     /**
-     * Function that writes the preprocessed paths to a file
+     * Function that writes the preprocessed paths to the -outpaths file
      * @param paths the preprocessed SR-paths
-     * @param filename the name of the file to which we should write the SR-paths
      */
-    private void preprocessedPathsToFile(ArrayList<int[]> paths, String filename) {
+    private void preprocessedPathsToFile(ArrayList<int[]> paths) {
         StringBuilder builder = new StringBuilder();
         for (int[] path : paths) {
             builder.append(Arrays.toString(path));
             builder.append("\n");
         }
-        RepetitaWriter.writeToFile(builder.toString(), filename);
+        RepetitaWriter.writeToPathFile(builder.toString());
     }
 
     /**
@@ -186,11 +200,6 @@ public class SRPP extends SRSolver {
         }
     }
 
-    @Override
-    public long solveTime(Setting setting) {
-        return ILPSolveTime+preprocessingTime;
-    }
-
     /**
      * Creates the ILP and solves it based on the information given
      * @param paths list of all SR-paths that could potentially be used in a solution
@@ -199,7 +208,7 @@ public class SRPP extends SRSolver {
      * @param topology the topology of the graph, used values are: nNodes, nEdges, and edgeCapacity[]
      * @return the uMax found by the ILP program
      */
-    private double solveILP (ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
+    private double solveILP (ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology, long endTime) {
         try {
             /* Create empty environment, set options, and start */
             GRBEnv env = new GRBEnv(true);
@@ -210,6 +219,7 @@ public class SRPP extends SRSolver {
 
             /* Create empty model */
             GRBModel model = new GRBModel(env);
+            model.set(GRB.DoubleParam.TimeLimit, (double) (endTime-System.currentTimeMillis())/1000);
 
             /* Create variables */
             GRBVar[] SRPaths = new GRBVar[paths.size()];
@@ -286,5 +296,10 @@ public class SRPP extends SRSolver {
             System.out.println("Error code : " + e.getErrorCode() + ". " + e.getMessage());
             return 0.0;
         }
+    }
+
+    @Override
+    public long solveTime(Setting setting) {
+        return ILPSolveTime+preprocessingTime;
     }
 }
