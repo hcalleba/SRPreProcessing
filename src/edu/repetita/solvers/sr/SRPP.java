@@ -26,6 +26,7 @@ import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
  */
 public class SRPP extends SRSolver {
 
+    private static long maxExecTime = 86400000;  // In ms (= 24 hours)
     private long preprocessingTime;
     private long ILPSolveTime;
     boolean writeOutPaths;
@@ -76,7 +77,12 @@ public class SRPP extends SRSolver {
 
         /* Preprocess the SR-paths */
         long startTime = System.currentTimeMillis();
-        long endTime = startTime+milliseconds;
+        long endTime;
+        if (milliseconds > 0) {
+            endTime = startTime + milliseconds;
+        } else {
+            endTime = startTime + maxExecTime;
+        }
         int nbPaths = 0;
         nbPaths = preprocessTopology(topology.nNodes, root, paths, startTime+milliseconds);
         preprocessingTime = System.currentTimeMillis() - startTime;
