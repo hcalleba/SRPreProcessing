@@ -20,7 +20,6 @@ public class SegmentTreeRoot {
     public final int maxSegments;
     private SegmentTreeLeaf[] leaves;
     public final EdgeLoadsLinkedList[][] edgeLoadPerPair;
-    public final double[][] trafficMatrix;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
      having origin and destination respectively as origin and destination nodes
@@ -32,17 +31,13 @@ public class SegmentTreeRoot {
      * @param topology the topology on which the tree will be built
      * @param maxSegments the maximum number of (node) segments of each SR-path
      */
-    public SegmentTreeRoot(Topology topology, int maxSegments, Demands demands) {
+    public SegmentTreeRoot(Topology topology, int maxSegments) {
         this.nNodes = topology.nNodes;
         this.nEdges = topology.nEdges;
         this.maxSegments = maxSegments;
         this.leaves = new SegmentTreeLeaf[nNodes];
         this.ODPaths = new LinkedList[nNodes][nNodes];
-        if (demands != null) {
-            this.trafficMatrix = Demands.toTrafficMatrix(demands, nNodes);
-        } else {
-            this.trafficMatrix = null;
-        }
+
 
         double [][][] tempLoads = makeEdgeLoadPerPair(topology);
         this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
