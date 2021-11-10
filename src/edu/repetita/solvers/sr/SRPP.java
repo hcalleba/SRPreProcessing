@@ -84,7 +84,7 @@ public class SRPP extends SRSolver {
             endTime = startTime + maxExecTime;
         }
         int nbPaths = 0;
-        nbPaths = preprocessTopology(topology.nNodes, root, paths, startTime+milliseconds);
+        nbPaths = preprocessTopology(topology.nNodes, root, paths, endTime);
         preprocessingTime = System.currentTimeMillis() - startTime;
 
         /* Solve the ILP or write the non-dominated paths to -outpaths file */
