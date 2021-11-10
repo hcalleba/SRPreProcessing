@@ -87,7 +87,8 @@ public class SRPP extends SRSolver {
         RepetitaWriter.appendToOutput("ILP solve time : " + (double)ILPSolveTime/1000 + " seconds");
         RepetitaWriter.appendToOutput("Total time elapsed : " + (double)(ILPSolveTime+preprocessingTime)/1000 + " seconds");
         RepetitaWriter.appendToOutput("Total number of paths after preprocessing : " + nbPaths);
-        RepetitaWriter.appendToOutput("Objective value (uMax) : " + uMax + "\n");
+        RepetitaWriter.appendToOutput("Number of nodes : " + topology.nNodes);
+        RepetitaWriter.appendToOutput("Number of edges : " + topology.nEdges);
     }
 
     /**
