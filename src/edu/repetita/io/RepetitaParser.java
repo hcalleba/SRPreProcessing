@@ -191,12 +191,9 @@ final public class RepetitaParser {
         return solverFeatures;
     }
 
-    public static ArrayList<int[]> parseSRPaths(String filename, SegmentTreeRoot root) throws IOException {
+    public static ArrayList<int[]> parseSRPaths(String filename, SegmentTreeRoot root, ArrayList<int[]> paths) throws IOException {
         try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
             Iterator<String> lines = lineStream.iterator();
-
-            // SR-paths
-            ArrayList<int[]> paths = new ArrayList<int[]>();
 
             String line;
             // Demands info: label src dest bw

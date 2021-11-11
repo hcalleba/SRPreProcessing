@@ -146,7 +146,7 @@ public class SRPP extends SRSolver {
             /* Load SR-paths from file if one is given */
             case "loadFromFile":
                 try {
-                    paths = RepetitaParser.parseSRPaths(inpathsFilename, root);
+                    RepetitaParser.parseSRPaths(inpathsFilename, root, paths);
                 } catch (IOException e) {
                     e.printStackTrace();
                     System.exit(1);
