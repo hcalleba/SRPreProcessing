@@ -269,7 +269,7 @@ public class SegmentTreeRoot {
         else {
             EdgeLoadsLinkedList res = EdgeLoadsLinkedList.add(edgeLoadPerPair[path[0]][path[1]], edgeLoadPerPair[path[1]][path[2]]);
             for (int i = 3; i < path.length; i++) {
-                res.add(edgeLoadPerPair[i-1][i]);
+                res.add(edgeLoadPerPair[path[i-1]][path[i]]);
             }
             return res;
         }
