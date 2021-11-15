@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.concurrent.*;
 
 import gurobi.*;
 
@@ -67,6 +66,13 @@ public class SRPP extends SRSolver {
     public void solve(Setting setting, long milliseconds) {
 
         /* Set variables */
+        long startTime = System.currentTimeMillis();
+        long endTime;
+        if (milliseconds > 0) {
+            endTime = startTime + milliseconds;
+        } else {
+            endTime = startTime + maxExecTime;
+        }
         Topology topology = setting.getTopology();
         Demands demands = setting.getDemands();
         int maxSegments = setting.getMaxSegments();
@@ -76,13 +82,6 @@ public class SRPP extends SRSolver {
         ArrayList<int[]> paths = new ArrayList<>();
 
         /* Preprocess the SR-paths */
-        long startTime = System.currentTimeMillis();
-        long endTime;
-        if (milliseconds > 0) {
-            endTime = startTime + milliseconds;
-        } else {
-            endTime = startTime + maxExecTime;
-        }
         int nbPaths = 0;
         nbPaths = preprocessTopology(topology.nNodes, root, paths, endTime);
         preprocessingTime = System.currentTimeMillis() - startTime;
