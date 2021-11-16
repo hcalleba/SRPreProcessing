@@ -87,15 +87,15 @@ public class SRPP extends SRSolver {
         preprocessingTime = System.currentTimeMillis() - startTime;
 
         /* Solve the ILP or write the non-dominated paths to -outpaths file */
+        startTime = System.currentTimeMillis();
         if (System.currentTimeMillis() < endTime) {
-            startTime = System.currentTimeMillis();
             if (scenarioChoice.equals("preprocess")) {
                 preprocessedPathsToFile(paths);
             } else {
                 uMax = solveILP(paths, root, topology, endTime);
             }
-            ILPSolveTime = System.currentTimeMillis() - startTime;
         }
+        ILPSolveTime = System.currentTimeMillis() - startTime;
 
         /* Log output */
         RepetitaWriter.appendToOutput("OK");
