@@ -1,0 +1,9 @@
+which: no javac in (/opt/xcat/bin:/opt/xcat/sbin:/opt/xcat/share/xcat/tools:/usr/lib64/qt-3.3/bin:/home/ulb/gom/hcalleba/perl5/bin:/opt/sw/noarch/lua/lua/bin:/opt/sw/noarch/luarocks-3.5.0/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/local/sbin:/CECI/soft/cecisw/noarch/manual/ceci-tools/bin:/home/ulb/gom/hcalleba/.local/gurobi912/linux64/bin:/home/ulb/gom/hcalleba/.local/sbt/bin:/home/ulb/gom/hcalleba/.local/bin:/home/ulb/gom/hcalleba/bin)
+Warning: JAVA_HOME environment variable is not set.
+57266405376
+Academic license - for non-commercial use only - expires 2022-01-12
+pre-optimization max link utilization 1.5581415
+post-optimization max link utilization 0.8999
+2343 demands over 2550 (91.88235294117646%) have a different segment routing path between pre-optimization and post-optimization
+
+Optimization time (in seconds): 6.926971065

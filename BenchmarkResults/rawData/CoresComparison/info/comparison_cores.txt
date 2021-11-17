@@ -1,0 +1,8 @@
+- Echelle logarithmique
+- Topologies triées sur base de 8 cores
+- Red = 1 core
+  Blue = 8 cores
+  Green = 16 cores
+- Moyenne à chaque fois sur les 5 fichiers de demande
+
+-exécutés sur du 2-SR full

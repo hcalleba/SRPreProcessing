@@ -1,0 +1,11 @@
+Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+	at java.util.LinkedList.linkLast(LinkedList.java:142)
+	at java.util.LinkedList.add(LinkedList.java:338)
+	at edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList.add(EdgeLoadsLinkedList.java:77)
+	at edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeLeaf.extendSRPath(SegmentTreeLeaf.java:91)
+	at edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeLeaf.extendSRPath(SegmentTreeLeaf.java:83)
+	at edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot.addDepth(SegmentTreeRoot.java:147)
+	at edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot.createODPaths(SegmentTreeRoot.java:131)
+	at edu.repetita.solvers.sr.SRPP.preprocessTopology(SRPP.java:105)
+	at edu.repetita.solvers.sr.SRPP.solve(SRPP.java:74)
+	at edu.repetita.main.Main.main(Main.java:151)

@@ -68,15 +68,6 @@ rather recompute them from every node segment pair and then only store the preco
 which would imply a N*N*E (*4 because I use floats) bytes of memory used.
 
 
-7. The ILP program using the computed non dominated paths is still not implemented, which makes the demand file useless.
-Yet it is still mandatory to provide a demand file as I did not change too much of the Main method.
-
-
-8. I don't think adding the demands to the algorithm is really useful. For example on the largest graph, there are 314 nodes,
-this implies a possible 314²-314 OD pairs for demands (=98282), and there are in fact 96057 demands in the demands file,
-which is almost every demand.
-
-
 9. Some paths use extremely long detours, we might add a threshold with respect to total utilisation that might not
 exceed a certain amount * OSPF(total utilisation). Although this would not be an exact method anymore.
 For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW3A to go from node 1 to 0, the SR-path
@@ -90,8 +81,5 @@ For example on graph https://editor.p5js.org/hugo.callebaut.sjb/sketches/WuKwacW
 12. Could maybe try to use "non-hollow" datastructures for the children of a leaf, BUT no O(1) accesses anymore to a child :/
 
 13. Could make SegmentTreeRoot a singleton ? Or at least make a static getter such as not to have it stored in EVERY leaf
-
-14. Instead of "creating a new SR-path" and testing if it is dominated by any previous path, we could take a previous
-path and test if it will dominate any path that we could add at this iteration.
 
 15. https://dzone.com/articles/java-how-much-memory-do Memory in Java

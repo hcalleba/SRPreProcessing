@@ -1,0 +1,8 @@
+Error code : 10001. Out of memory
+OK
+Preprocessing time : 1.493 seconds
+ILP solve time : 563.486 seconds
+Total time elapsed : 564.979 seconds
+Total number of paths after preprocessing : 0
+Objective value (uMax) : 0.0
+
