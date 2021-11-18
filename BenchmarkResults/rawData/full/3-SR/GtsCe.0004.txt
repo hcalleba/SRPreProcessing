@@ -1,8 +1,0 @@
-Error code : 10001. Unable to set attribute 'Obj'
-OK
-Preprocessing time : 23.991 seconds
-ILP solve time : 793.99 seconds
-Total time elapsed : 817.981 seconds
-Total number of paths after preprocessing : 0
-Objective value (uMax) : 0.0
-

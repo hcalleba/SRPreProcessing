@@ -1,7 +1,0 @@
-OK
-Preprocessing time : 0.207 seconds
-ILP solve time : 3.326 seconds
-Total time elapsed : 3.533 seconds
-Total number of paths after preprocessing : 0
-Objective value (uMax) : 0.899936
-
