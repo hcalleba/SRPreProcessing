@@ -1,4 +1,4 @@
-Topology,Exit code,Total time,Resulting paths,Nodes,Edges,Maximum paths,percentage of resulting paths
+Topology,ExitCode,TotalTime,nbPaths,Nodes,Edges,maxPaths,percentagePaths
 Aarnet,0,0.074,5161,19,48,99180,5.203670094777173%
 Abilene,0,0.036,1628,11,28,9020,18.048780487804876%
 Abvt,0,0.26,35081,23,62,223652,15.685529304455137%

@@ -1,4 +1,4 @@
-Topology,DemandFile,Exit code,Total  time,pre-uMax,post-uMax
+Topology,DemandFile,ExitCode,TotalTime,pre-uMax,post-uMax
 Aarnet,0000,0,0.13828446,1.226691525,0.9432922
 Aarnet,0001,0,0.092314563,0.9335895,0.9335895
 Aarnet,0002,0,0.271701538,1.25085615,0.9634367
