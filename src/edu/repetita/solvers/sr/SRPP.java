@@ -268,7 +268,7 @@ public class SRPP extends SRSolver {
                 for (EdgePair edgePair : edgeLoads) {
                     if (edgePair.getLoad() != 0) {
                         uMaxExpr[edgePair.getKey()].addTerm(
-                                root.trafficMatrix[path[0]][path[path.length - 1]], SRPaths[i]);
+                                root.trafficMatrix[path[0]][path[path.length - 1]]*edgePair.getLoad(), SRPaths[i]);
                     }
                 }
             }
