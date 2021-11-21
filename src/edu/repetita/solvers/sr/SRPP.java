@@ -229,7 +229,7 @@ public class SRPP extends SRSolver {
             /* Create variables */
             GRBVar[] SRPaths = new GRBVar[paths.size()];
             for (int i = 0; i < paths.size(); i++) {
-                SRPaths[i] = model.addVar(0.0, 1.0, 0.0, GRB.BINARY, "SR-path-"+i);
+                SRPaths[i] = model.addVar(0.0, 1.0, 0.0, GRB.BINARY, "SR-path-"+Arrays.toString(paths.get(i)));
             }
             GRBVar uMax = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "uMax");
 
@@ -237,6 +237,7 @@ public class SRPP extends SRSolver {
             GRBLinExpr objExpr = new GRBLinExpr();
             objExpr.addTerm(1.0, uMax);
             model.setObjective(objExpr, GRB.MINIMIZE);
+            //model.set(GRB.DoubleParam.OptimalityTol, 0.000000001);
 
             /* Adding constraints */
             /* CONSTRAINT : Sum of SR-paths for an OD pair is equal to one */
@@ -276,6 +277,7 @@ public class SRPP extends SRSolver {
                 uMaxExpr[i].addTerm(-topology.edgeCapacity[i], uMax);
                 model.addConstr(uMaxExpr[i], GRB.LESS_EQUAL, 0.0, "uMax-edge-"+i);
             }
+            // model.write("out/model.lp");
 
             /* Optimize model */
             model.optimize();
