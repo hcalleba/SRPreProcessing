@@ -1,4 +1,4 @@
-Topology,DemandFile,ExitCode_SRPP,Time_SRPP,Umax_SRPP,ExitCode_MIP,Time_MIP,Umax_MIP,ExitCode_full,Time_full,Umax_full
+Topology,DemandFile,ExitCode_SRPP,Time_SRPP,Umax_SRPP,ExitCode_full,Time_full,Umax_full
 Aarnet,0000,0,0.39,0.9432921999999999,0,1.995,0.9432921999999999
 Aarnet,0001,0,0.377,0.9335895,0,1.933,0.9335895
 Aarnet,0002,0,0.376,0.9634367,0,1.919,0.9634366999999999
