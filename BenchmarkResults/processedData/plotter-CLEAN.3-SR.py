@@ -11,11 +11,11 @@ if __name__ == "__main__":
         next(csvreader)  # Skip header
 
         SRPPdata = []
-        #MIPdata = []
         fulldata = []
+        CG4SRdata = []
         SRPPsolved = 0
-        #MIPsolved = 0
-        fulsolved = 0
+        fullsolved = 0
+        CG4SRsolved = 0
         for row in csvreader:
             if row[2]=="0":
                 if float(row[3]) < 1800:
@@ -23,18 +23,18 @@ if __name__ == "__main__":
                     SRPPdata.append(float(row[3]))
             if row[5]=="0":
                 if float(row[6]) < 1800:
-                    fulsolved += 1
+                    fullsolved += 1
                     fulldata.append(float(row[6]))
-            #if row[8]=="0":
-            #    if float(row[9]) < 1800:
-            #        fulsolved += 1
-            #        fulldata.append(float(row[9]))
+            if row[8]=="0":
+                if float(row[9]) < 1800:
+                    CG4SRsolved += 1
+                    CG4SRdata.append(float(row[9]))
                 
-        #MIPdata.sort()
         SRPPdata.sort()
         fulldata.sort()
+        CG4SRdata.sort()
         plt.plot(SRPPdata, range(len(SRPPdata)), label="SRPP")
-        #plt.plot(MIPdata, range(len(MIPdata)), label="MIP")
+        plt.plot(CG4SRdata, range(len(CG4SRdata)), label="CG4SR")
         plt.plot(fulldata, range(len(fulldata)), label="full")
         plt.legend()
         plt.title(file.split(".")[0])
@@ -43,5 +43,5 @@ if __name__ == "__main__":
         plt.xscale('log')
         plt.show()
         print("SRPP solved : " + str(SRPPsolved))
-        #print("MIP solved : " + str(MIPsolved))
-        print("full solved : " + str(fulsolved))
+        print("full solved : " + str(fullsolved))
+        print("CG4SR solved : " + str(CG4SRsolved))
