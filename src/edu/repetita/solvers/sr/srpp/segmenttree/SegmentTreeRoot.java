@@ -5,6 +5,7 @@ import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -213,7 +214,21 @@ public class SegmentTreeRoot {
                 if (nextPathLoads.dominates(newPathEdgeLoads)) {
                     return true;
                 }
+                if (newPathEdgeLoads.dominates(nextPathLoads)) {
+                    StringBuilder sb = new StringBuilder();
+                    SegmentTreeLeaf stl = nextPath;
+                    System.out.print("Shorter path : ");
+                    while (stl.parent != null) {
+                        sb.append(stl.currentNodeNumber);
+                        sb.append("-");
+                        stl = stl.parent;
+                    }
+                    sb.append(stl.currentNodeNumber);
+                    System.out.print(sb.toString());
+                    System.out.println(" is domminated by a longer path");
+                }
                 /*
+                 TODO change the comment
                  We do not test the case where a longer path might dominate a shorter path.
                  From experience, this never happens, and we have the intuition that it simply cannot happen.
                  Longer paths can indeed dominate shorter paths, but we think that in such a case, the shorter path

@@ -6,7 +6,7 @@ Note that &version=9 should be added to the end too and that wget does not seem 
 Also trailing spaces need to be deleted at each line in the gurobi.lic file that you will create.
 
 Second, the commons-lang-2.6.jar file should also be added to the lib file.
-It is downloadable from from here https://archive.apache.org/dist/commons/lang/binaries/commons-lang-2.6-bin.tar.gz
+It is downloadable from here https://archive.apache.org/dist/commons/lang/binaries/commons-lang-2.6-bin.tar.gz
 
 Now we need to compile all the java files.
 First head to the starting directory (should end with /SRPreProc
