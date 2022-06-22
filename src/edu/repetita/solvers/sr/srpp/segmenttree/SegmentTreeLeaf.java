@@ -1,6 +1,9 @@
 package edu.repetita.solvers.sr.srpp.segmenttree;
 
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
+
+import java.util.LinkedList;
 
 /**
  * Class corresponding to a leaf of the tree containing all SR-paths.
@@ -17,6 +20,8 @@ class SegmentTreeLeaf {
     public final int depth;
     protected final SegmentTreeLeaf[] children;
     protected final EdgeLoadsLinkedList edgeLoads;
+    protected final LinkedList<SegmentTreeLeaf> adjacencyChildren;
+    private final boolean adjacency;
 
     /**
      * Constructor of a leaf. This constructor is called from the root and therefore creates an "origin leaf" for the
@@ -32,10 +37,25 @@ class SegmentTreeLeaf {
         this.depth = 0;
         this.children = new SegmentTreeLeaf[root.nNodes];
         this.edgeLoads = null;
+        this.adjacency = false;
         // Create all 1-SR (OSPF) paths
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
             if (nodeNumber != currentNodeNumber) {
                 addChild(nodeNumber, root.edgeLoadPerPair[currentNodeNumber][nodeNumber]);
+            }
+        }
+        /* Add all non dominated adjacency segments that start in currentNodeNumber */
+        this.adjacencyChildren = new LinkedList<>();
+        for (int edgeNumber = 0; edgeNumber < root.nEdges; edgeNumber++){
+            if (root.edgeSrc[edgeNumber] == currentNodeNumber) {
+                int destNode = root.edgeDest[edgeNumber];
+                EdgeLoadsLinkedList nodeSegmentLoads = root.edgeLoadPerPair[currentNodeNumber][destNode];
+                EdgeLoadsLinkedList adjacencySegmentLoads = new EdgeLoadsLinkedList(edgeNumber);
+                if (!nodeSegmentLoads.dominates(adjacencySegmentLoads)) {
+                    System.out.println(currentNodeNumber + "->" + destNode);
+                    System.out.println("--");
+                    adjacencyChildren.add(new SegmentTreeLeaf(edgeNumber, this, adjacencySegmentLoads, true));
+                }
             }
         }
     }
@@ -43,9 +63,11 @@ class SegmentTreeLeaf {
     /**
      * Constructor of a leaf. This constructor is called from another leaf passing itself as parent argument.
      * @param currentNodeNumber The node number attributed to this leaf
-     * @param parent The leaf that will become the parent of the newly created leaf (should in principle Zalso be the one calling this constructor)
+     * @param parent The leaf that will become the parent of the newly created leaf (should in principle also be the one calling this constructor)
+     * @param edgeLoads The loads on the edges
+     * @param adjacency Is this leaf an adjacency segment or not (if not it is a node segment)
      */
-    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads) {
+    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads, boolean adjacency) {
         this.currentNodeNumber = currentNodeNumber;
         this.originNodeNumber = parent.originNodeNumber;
         this.parent = parent;
@@ -57,6 +79,18 @@ class SegmentTreeLeaf {
             this.children = new SegmentTreeLeaf[root.nNodes];
         }
         this.edgeLoads = edgeLoads;
+        this.adjacencyChildren = new LinkedList<>();
+        this.adjacency = adjacency;
+    }
+
+    /**
+     * Constructor of a leaf. This constructor is called from another leaf passing itself as parent argument.
+     * @param currentNodeNumber The node number attributed to this leaf
+     * @param parent The leaf that will become the parent of the newly created leaf (should in principle also be the one calling this constructor)
+     * @param edgeLoads The loads on the edges
+     */
+    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads) {
+        this(currentNodeNumber, parent, edgeLoads, false);
     }
 
     /**

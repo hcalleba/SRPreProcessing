@@ -25,6 +25,15 @@ public class EdgeLoadsLinkedList implements Cloneable, Iterable<EdgePair> {
         }
     }
 
+    /**
+     * Constructor of the class
+     * @param edgeNumber the unique edge for which the load will be set to one.
+     */
+    public EdgeLoadsLinkedList(int edgeNumber) {
+        this.edges = new LinkedList<>();
+        edges.add(new EdgePair(edgeNumber, 1));
+    }
+
     private EdgeLoadsLinkedList() {
         this.edges = new LinkedList<>();
     }

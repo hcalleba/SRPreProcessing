@@ -21,6 +21,8 @@ public class SegmentTreeRoot {
     private SegmentTreeLeaf[] leaves;
     public final EdgeLoadsLinkedList[][] edgeLoadPerPair;
     public final double[][] trafficMatrix;
+    public final int[] edgeSrc;
+    public final int[] edgeDest;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
      having origin and destination respectively as origin and destination nodes
@@ -57,6 +59,8 @@ public class SegmentTreeRoot {
                 ODPaths[originNode][destNode] = new LinkedList<>();
             }
         }
+        this.edgeSrc = topology.edgeSrc;
+        this.edgeDest = topology.edgeDest;
     }
 
     /**
@@ -127,7 +131,7 @@ public class SegmentTreeRoot {
     public void createODPaths(long endTime) {
         /* We create the 0-th depth and the first will be created from the 0-th depth constructor */
         for (int i = 0; i < nNodes; i++) {
-            leaves[i] = new SegmentTreeLeaf(i, this);
+            leaves[i] = new SegmentTreeLeaf(i, this); // TODO add adjacency segments
         }
         for (int depth = 2; depth <= maxSegments; depth++) {
             if (System.currentTimeMillis() > endTime) {
