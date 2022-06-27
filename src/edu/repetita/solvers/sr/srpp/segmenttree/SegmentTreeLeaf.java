@@ -3,6 +3,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 
 /**
@@ -13,7 +14,7 @@ import java.util.LinkedList;
  * currentNodeNumber found was in fact the origin of the SR-path.
  */
 class SegmentTreeLeaf {
-    public final int currentNodeNumber;
+    public final int currentNodeNumber;  // If >= nNodes, then corresponds to edge currentNodeNumber - nNodes
     public final int originNodeNumber;
     public final SegmentTreeLeaf parent;
     public final SegmentTreeRoot root;
@@ -21,7 +22,6 @@ class SegmentTreeLeaf {
     protected final SegmentTreeLeaf[] children;
     protected final EdgeLoadsLinkedList edgeLoads;
     protected final LinkedList<SegmentTreeLeaf> adjacencyChildren;
-    private final boolean adjacency;
 
     /**
      * Constructor of a leaf. This constructor is called from the root and therefore creates an "origin leaf" for the
@@ -37,7 +37,6 @@ class SegmentTreeLeaf {
         this.depth = 0;
         this.children = new SegmentTreeLeaf[root.nNodes];
         this.edgeLoads = null;
-        this.adjacency = false;
         // Create all 1-SR (OSPF) paths
         for (int nodeNumber = 0; nodeNumber < root.nNodes; nodeNumber++) {
             if (nodeNumber != currentNodeNumber) {
@@ -52,9 +51,8 @@ class SegmentTreeLeaf {
                 EdgeLoadsLinkedList nodeSegmentLoads = root.edgeLoadPerPair[currentNodeNumber][destNode];
                 EdgeLoadsLinkedList adjacencySegmentLoads = new EdgeLoadsLinkedList(edgeNumber);
                 if (!nodeSegmentLoads.dominates(adjacencySegmentLoads)) {
-                    System.out.println(currentNodeNumber + "->" + destNode);
-                    System.out.println("--");
-                    adjacencyChildren.add(new SegmentTreeLeaf(edgeNumber, this, adjacencySegmentLoads, true));
+                    // TODO do not add parallel links with same capacity and weights (since ECMP is then always at least as good)
+                    addChild(edgeNumber + root.nNodes, adjacencySegmentLoads);
                 }
             }
         }
@@ -65,9 +63,8 @@ class SegmentTreeLeaf {
      * @param currentNodeNumber The node number attributed to this leaf
      * @param parent The leaf that will become the parent of the newly created leaf (should in principle also be the one calling this constructor)
      * @param edgeLoads The loads on the edges
-     * @param adjacency Is this leaf an adjacency segment or not (if not it is a node segment)
      */
-    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads, boolean adjacency) {
+    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads) {
         this.currentNodeNumber = currentNodeNumber;
         this.originNodeNumber = parent.originNodeNumber;
         this.parent = parent;
@@ -80,17 +77,6 @@ class SegmentTreeLeaf {
         }
         this.edgeLoads = edgeLoads;
         this.adjacencyChildren = new LinkedList<>();
-        this.adjacency = adjacency;
-    }
-
-    /**
-     * Constructor of a leaf. This constructor is called from another leaf passing itself as parent argument.
-     * @param currentNodeNumber The node number attributed to this leaf
-     * @param parent The leaf that will become the parent of the newly created leaf (should in principle also be the one calling this constructor)
-     * @param edgeLoads The loads on the edges
-     */
-    private SegmentTreeLeaf(int currentNodeNumber, SegmentTreeLeaf parent, EdgeLoadsLinkedList edgeLoads) {
-        this(currentNodeNumber, parent, edgeLoads, false);
     }
 
     /**
@@ -98,8 +84,15 @@ class SegmentTreeLeaf {
      * @param childNumber the node number in the topology of the newly added child
      */
     private void addChild(int childNumber, EdgeLoadsLinkedList edgeLoads) {
-        children[childNumber] = new SegmentTreeLeaf(childNumber, this, edgeLoads);
-        root.addLeafToList(children[childNumber]);
+        SegmentTreeLeaf child = new SegmentTreeLeaf(childNumber, this, edgeLoads);
+        if (childNumber < root.nNodes) {
+            children[childNumber] = child;
+            root.addLeafToList(children[childNumber]);
+        }
+        else {
+            adjacencyChildren.add(child);
+            root.addLeafToList(child);
+        }
     }
 
     /**
@@ -111,13 +104,40 @@ class SegmentTreeLeaf {
      * @param depth The depth of the new paths we want to try to add
      */
     protected void extendSRPath(int depth) {
-        if (this.depth < depth-1) { // Recursive call if not at the correct depth
+        if (this.depth < depth-1) {
+            // Recursive call if not at the correct depth
             for (int nextNode = 0; nextNode < root.nNodes; nextNode++) {
                 if (children[nextNode] != null) {
                     children[nextNode].extendSRPath(depth);
                 }
             }
+            for (SegmentTreeLeaf adjacencyChild : adjacencyChildren) {
+                adjacencyChild.extendSRPath(depth);
+            }
         }
+        else { // Try to add all possible segments at the end
+            EdgeLoadsLinkedList result;
+            SegmentTreeLeaf leafToSubPath = root.getLeafFromPath(getTestingPath());
+            for (SegmentTreeLeaf child : leafToSubPath.children) {
+                if (child != null && originNodeNumber != child.currentNodeNumber) {
+                    result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, child.currentNodeNumber));
+                    if (!root.testNewPathDomination(result, originNodeNumber, child.currentNodeNumber, this.depth+1)) {
+                        addChild(child.currentNodeNumber, result);
+                    }
+                }
+            }
+            for (SegmentTreeLeaf child : leafToSubPath.adjacencyChildren) {
+                int edgeNumber = child.currentNodeNumber - root.nNodes;
+                int destNode = root.edgeDest[edgeNumber];
+                if (originNodeNumber != destNode) {
+                    result = EdgeLoadsLinkedList.add(edgeLoads, new EdgeLoadsLinkedList(edgeNumber));
+                    if (!root.testNewPathDomination(result, originNodeNumber, destNode, this.depth+1)) {
+                        addChild(child.currentNodeNumber, result);
+                    }
+                }
+            }
+        }
+        /*
         else { // Try to add all possible nodes at the end
             EdgeLoadsLinkedList result;
             for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
@@ -129,6 +149,7 @@ class SegmentTreeLeaf {
                 }
             }
         }
+        */
     }
 
     /**
@@ -175,6 +196,25 @@ class SegmentTreeLeaf {
 
     /**
      * Creates an array of integers each corresponding to a node in the topology.
+     * The array corresponds to [(origin+1).currentNodeNumber, ..., this.currentNodeNumber]
+     * @return the corresponding SR-path
+     */
+    private int[] getTestingPath() {
+        int[] path = new int[depth];
+        SegmentTreeLeaf nextNode = this;
+        for (int varDepth = depth-1; varDepth >= 0; varDepth--) {
+            path[varDepth] = nextNode.currentNodeNumber;
+            nextNode = nextNode.parent;
+        }
+        // If first segment is an adjacency segment replace it by corresponding node segment
+        if (path[0] >= root.nNodes) {
+            path[0] = root.edgeDest[path[0] - root.nNodes];
+        }
+        return path;
+    }
+
+    /**
+     * Creates an array of integers each corresponding to a node in the topology.
      * The array corresponds to [origin.currentNodeNumber, ..., this.currentNodeNumber]; which is the SR-path of this node
      * @return an array of int corresponding to the SR path of the current leaf with the origin.
      */
@@ -192,6 +232,11 @@ class SegmentTreeLeaf {
      * Deletes a leaf and all of its children by setting the corresponding children in the parent leaf to null
      */
     protected void delete() {
-        parent.children[currentNodeNumber] = null;
+        if (currentNodeNumber < root.nNodes) {
+            parent.children[currentNodeNumber] = null;
+        }
+        else {
+            parent.adjacencyChildren.remove(this);
+        }
     }
 }

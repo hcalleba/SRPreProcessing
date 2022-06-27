@@ -129,9 +129,9 @@ public class SegmentTreeRoot {
      * Creates all SR paths up to maxSegments for all (origin, destination) pairs in the Topology.
      */
     public void createODPaths(long endTime) {
-        /* We create the 0-th depth and the first will be created from the 0-th depth constructor */
+        /* We create the 0-th depth and the first depth will be created from the 0-th depth constructor */
         for (int i = 0; i < nNodes; i++) {
-            leaves[i] = new SegmentTreeLeaf(i, this); // TODO add adjacency segments
+            leaves[i] = new SegmentTreeLeaf(i, this);
         }
         for (int depth = 2; depth <= maxSegments; depth++) {
             if (System.currentTimeMillis() > endTime) {
@@ -164,7 +164,12 @@ public class SegmentTreeRoot {
      * @param leaf the leaf to be added
      */
     protected void addLeafToList(SegmentTreeLeaf leaf) {
-        ODPaths[leaf.originNodeNumber][leaf.currentNodeNumber].add(leaf);
+        if (leaf.currentNodeNumber < nNodes) {
+            ODPaths[leaf.originNodeNumber][leaf.currentNodeNumber].add(leaf);
+        }
+        else {
+            ODPaths[leaf.originNodeNumber][edgeDest[leaf.currentNodeNumber - nNodes]].add(leaf);
+        }
     }
 
     /**
@@ -180,7 +185,7 @@ public class SegmentTreeRoot {
     /**
      * returns true if path is an existing SR-path in the tree, false otherwise
      * @param path the path whose presence is to be tested.
-     *             This path is given as an array of int corresponding to: [originNode ... destinationNode]
+     *             This path is given as an array of int corresponding to: [originNode, ..., destinationNode]
      * @return true if the path exist, false if not
      */
     public boolean pathInTree(int[] path) {
@@ -192,6 +197,23 @@ public class SegmentTreeRoot {
             }
         }
         return true;
+    }
+
+    /**
+     * returns the leaf corresponding to requested path
+     * @param path the requested path
+     *             This path is given as an array of int corresponding to: [originNode, ..., destinationNode]
+     * @return the requested leaf
+     */
+    public SegmentTreeLeaf getLeafFromPath(int[] path) {
+        SegmentTreeLeaf nextLeaf = leaves[path[0]];
+        for (int index = 1; index < path.length; index++) {
+            nextLeaf = nextLeaf.children[path[index]];
+            if (nextLeaf == null) {
+                return null;
+            }
+        }
+        return nextLeaf;
     }
 
     /**
@@ -218,6 +240,7 @@ public class SegmentTreeRoot {
                     return true;
                 }
                 /*
+                 TODO
                  We do not test the case where a longer path might dominate a shorter path.
                  From experience, this never happens, and we have the intuition that it simply cannot happen.
                  Longer paths can indeed dominate shorter paths, but we think that in such a case, the shorter path

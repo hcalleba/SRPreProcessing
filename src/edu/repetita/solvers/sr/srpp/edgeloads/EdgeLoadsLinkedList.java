@@ -145,6 +145,19 @@ public class EdgeLoadsLinkedList implements Cloneable, Iterable<EdgePair> {
         return thisEdge == null;
     }
 
+    public double getLoad(int edgeNumber) {
+        ListIterator<EdgePair> iterator = edges.listIterator();
+        while(iterator.hasNext()) {
+            EdgePair obj = iterator.next();
+            if (obj.getKey() == edgeNumber) {
+                return obj.getLoad();
+            } else if (obj.getKey() > edgeNumber) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     @Override
     public EdgeLoadsLinkedList clone() {
         EdgeLoadsLinkedList result = new EdgeLoadsLinkedList();
