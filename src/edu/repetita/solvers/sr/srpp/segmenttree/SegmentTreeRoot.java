@@ -220,9 +220,19 @@ public class SegmentTreeRoot {
     public SegmentTreeLeaf getLeafFromPath(int[] path) {
         SegmentTreeLeaf nextLeaf = leaves[path[0]];
         for (int index = 1; index < path.length; index++) {
-            nextLeaf = nextLeaf.children[path[index]];
-            if (nextLeaf == null) {
-                return null;
+            if (path[index] < nNodes) {
+                nextLeaf = nextLeaf.children[path[index]];
+                if (nextLeaf == null) {
+                    return null;
+                }
+            }
+            else {
+                for (SegmentTreeLeaf child : nextLeaf.adjacencyChildren) {
+                    if (child.currentNodeNumber == path[index]) {
+                        nextLeaf = child;
+                        break;
+                    }
+                }
             }
         }
         return nextLeaf;
@@ -308,7 +318,7 @@ public class SegmentTreeRoot {
         else {
             EdgeLoadsLinkedList res = EdgeLoadsLinkedList.add(getODLoads(path[0], path[1]), getODLoads(path[1],path[2]));
             for (int i = 3; i < path.length; i++) {
-                res.add(edgeLoadPerPair[path[i-1]][path[i]]);
+                res.add(getODLoads(path[i-1], path[i]));
             }
             return res;
         }
