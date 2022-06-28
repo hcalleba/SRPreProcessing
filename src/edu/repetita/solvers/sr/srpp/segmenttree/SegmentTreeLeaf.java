@@ -137,19 +137,6 @@ class SegmentTreeLeaf {
                 }
             }
         }
-        /*
-        else { // Try to add all possible nodes at the end
-            EdgeLoadsLinkedList result;
-            for (int lastNode = 0; lastNode < root.nNodes; lastNode++) {
-                if (!isOnPath(lastNode) && root.pathInTree(getTestingPath(lastNode))) {
-                    result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, lastNode));
-                    if (!root.testNewPathDomination(result, originNodeNumber, lastNode, this.depth+1)) {
-                        addChild(lastNode, result);
-                    }
-                }
-            }
-        }
-        */
     }
 
     /**

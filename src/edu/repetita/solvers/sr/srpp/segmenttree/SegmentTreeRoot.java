@@ -179,7 +179,19 @@ public class SegmentTreeRoot {
      * @return an EdgeLoadsLinkedList object containing the loads of each edge
      */
     protected EdgeLoadsLinkedList getODLoads(int originNode, int destNode) {
-        return edgeLoadPerPair[originNode][destNode];
+        EdgeLoadsLinkedList tempLoads;
+        if (originNode >= nNodes) {
+            int edgeNumber = originNode - nNodes;
+            originNode = edgeDest[edgeNumber];  // Convert adjacency segment to node segment
+        }
+        if (destNode < nNodes) {  // Return normal loads
+            tempLoads = edgeLoadPerPair[originNode][destNode];
+        }
+        else {  // Return normal loads plus adjacency segment loads
+            int edgeNumber = destNode - nNodes;
+            tempLoads = EdgeLoadsLinkedList.add(edgeLoadPerPair[originNode][edgeSrc[edgeNumber]], new EdgeLoadsLinkedList(edgeNumber));
+        }
+        return tempLoads;
     }
 
     /**
@@ -294,7 +306,7 @@ public class SegmentTreeRoot {
             return getODLoads(path[0], path[1]);
         }
         else {
-            EdgeLoadsLinkedList res = EdgeLoadsLinkedList.add(edgeLoadPerPair[path[0]][path[1]], edgeLoadPerPair[path[1]][path[2]]);
+            EdgeLoadsLinkedList res = EdgeLoadsLinkedList.add(getODLoads(path[0], path[1]), getODLoads(path[1],path[2]));
             for (int i = 3; i < path.length; i++) {
                 res.add(edgeLoadPerPair[path[i-1]][path[i]]);
             }

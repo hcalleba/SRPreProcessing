@@ -249,7 +249,8 @@ public class SRPP extends SRSolver {
             }
             for (int i = 0; i < paths.size(); i++) {
                 int[] path = paths.get(i);
-                uniquePathExpr[path[0]][path[path.length-1]].addTerm(1.0, SRPaths[i]);
+                int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
+                uniquePathExpr[path[0]][endNode].addTerm(1.0, SRPaths[i]);
             }
             for (int i = 0; i < topology.nNodes; i++) {
                 for (int j = 0; j < topology.nNodes; j++) {
@@ -268,8 +269,9 @@ public class SRPP extends SRSolver {
                 EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
                 for (EdgePair edgePair : edgeLoads) {
                     if (edgePair.getLoad() != 0) {
+                        int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
                         uMaxExpr[edgePair.getKey()].addTerm(
-                                root.trafficMatrix[path[0]][path[path.length - 1]]*edgePair.getLoad(), SRPaths[i]);
+                                root.trafficMatrix[path[0]][endNode]*edgePair.getLoad(), SRPaths[i]);
                     }
                 }
             }
