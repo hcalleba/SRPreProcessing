@@ -225,6 +225,7 @@ public class SRPP extends SRSolver {
             /* Create empty model */
             GRBModel model = new GRBModel(env);
             model.set(GRB.DoubleParam.TimeLimit, (double) (endTime-System.currentTimeMillis())/1000);
+            model.set(GRB.IntParam.Threads, 8);
 
             /* Create variables */
             GRBVar[] SRPaths = new GRBVar[paths.size()];
