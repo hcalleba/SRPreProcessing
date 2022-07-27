@@ -5,6 +5,7 @@ import edu.repetita.core.Solver;
 import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
+import edu.repetita.solvers.grp.GRP;
 import edu.repetita.solvers.sr.SRPP;
 
 import java.util.*;
@@ -169,7 +170,23 @@ public class Main {
             i++;
         }
 
+        /* Do not  do SRPP anymore, simply for testing against general routing */
+
         /* check that the strictly necessary information has been provided in input */
+        if (args.length < 1 || help) printHelp("");
+        if (graphFilename == null) printHelp("Needs an input topology file");
+        if (demandsFilename == null) printHelp("Needs an input demands file (or preprocess scenario)");
+
+        /* Set the settings according to command line parameters */
+        Setting setting = new Setting();
+        setting.setTopologyFilename(graphFilename);
+        setting.setDemandsFilename(demandsFilename);
+
+        Solver solver = new GRP();
+        solver.solve(setting, (long) timeLimit * 1000);
+
+
+        /* check that the strictly necessary information has been provided in input *//*
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
         if (demandsFilename == null && !scenarioChoice.equals("preprocess")) printHelp("Needs an input demands file (or preprocess scenario)");
@@ -177,19 +194,19 @@ public class Main {
         if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile") && !scenarioChoice.equals("preprocess")) {
             printHelp("Invalid scenario choice : "+scenarioChoice);
         }
-        if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");
+        if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");*/
 
 
-        /* Set the settings according to command line parameters */
+        /* Set the settings according to command line parameters *//*
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
         if (!scenarioChoice.equals("preprocess")) {
             setting.setDemandsFilename(demandsFilename);
         }
-        setting.setMaxSegments(maxSegments);
+        setting.setMaxSegments(maxSegments);*/
 
-        /* Solve the problem for the topology */
+        /* Solve the problem for the topology *//*
         Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
-        solver.solve(setting, (long) timeLimit * 1000);
+        solver.solve(setting, (long) timeLimit * 1000);*/
     }
 }
