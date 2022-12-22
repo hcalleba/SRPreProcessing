@@ -1,0 +1,39 @@
+NODES 10
+label x y
+0_node 0.0 0.0
+1_node 0.0 0.0
+2_node 0.0 0.0
+3_node 0.0 0.0
+4_node 0.0 0.0
+5_node 0.0 0.0
+6_node 0.0 0.0
+7_node 0.0 0.0
+8_node 0.0 0.0
+9_node 0.0 0.0
+
+EDGES 12
+label src dest weight bw delay
+edge_0 0 1 1 1000 1
+edge_1 1 0 1 1000 1
+edge_2 0 2 1 1000 1
+edge_3 2 0 1 1000 1
+edge_4 1 4 1 1000 1
+edge_5 4 1 1 1000 1
+edge_6 4 5 1 1000 1
+edge_7 5 4 1 1000 1
+edge_8 5 3 1 1000 1
+edge_9 3 5 1 1000 1
+edge_10 5 7 1 1000 1
+edge_11 7 5 1 1000 1
+edge_12 3 6 1 1000 1
+edge_13 6 3 1 1000 1
+edge_14 6 7 1 1000 1
+edge_15 7 6 1 1000 1
+edge_16 3 8 1 1000 1
+edge_17 8 3 1 1000 1
+edge_18 7 8 1 1000 1
+edge_19 8 7 1 1000 1
+edge_20 8 9 1 1000 1
+edge_21 9 8 1 1000 1
+edge_22 9 2 1 1000 1
+edge_23 2 9 1 1000 1

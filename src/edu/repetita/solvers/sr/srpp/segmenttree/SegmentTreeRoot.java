@@ -13,6 +13,9 @@ import java.util.ListIterator;
 /**
  * Class corresponding to the root of the tree containing the leaves (each leaf corresponding to an SR-path) and
  * information over the topology.
+ * The name "root" is probably poorly chosen as it is just a container for some information of the topology and
+ * the SegmentTreeLeaf objects.
+ * The origin node of a sr-path is itself a SegmentTreeLeaf object and not a SegmentTreeRoot object.
  */
 public class SegmentTreeRoot {
     public final int nNodes;
@@ -23,6 +26,8 @@ public class SegmentTreeRoot {
     public final double[][] trafficMatrix;
     public final int[] edgeSrc;
     public final int[] edgeDest;
+    public final int[] edgeWeights;
+    public final double[] edgeCapacity;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
      having origin and destination respectively as origin and destination nodes
@@ -61,6 +66,8 @@ public class SegmentTreeRoot {
         }
         this.edgeSrc = topology.edgeSrc;
         this.edgeDest = topology.edgeDest;
+        this.edgeWeights = topology.edgeWeight;
+        this.edgeCapacity = topology.edgeCapacity;
     }
 
     /**
