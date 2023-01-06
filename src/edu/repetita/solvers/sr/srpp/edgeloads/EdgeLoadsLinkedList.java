@@ -108,25 +108,75 @@ public class EdgeLoadsLinkedList implements Cloneable, Iterable<EdgePair> {
     }
 
     /**
-     * Compares two EdgeLoads and returns true if this (EdgeLoads object) dominates otherLoads
+     * Compares two EdgeLoads and returns 1 if this (EdgeLoads object) dominates otherLoads (or if they are equivalent),
+     * 0 if they are incomparable and -1 if otherLoads dominates this
      * @param otherLoads the other EdgeLoads object to be tested for domination
-     * @return true if otherLoads are dominated by this
+     * @return 1, 0 or -1
      */
-    public boolean dominates(EdgeLoadsLinkedList otherLoads) {
+    public int dominates(EdgeLoadsLinkedList otherLoads) {
         ListIterator<EdgePair> thisIt = this.edges.listIterator();
         ListIterator<EdgePair> otherIt = otherLoads.edges.listIterator();
         EdgePair thisEdge = thisIt.hasNext() ? thisIt.next() : null;
         EdgePair otherEdge = otherIt.hasNext() ? otherIt.next() : null;
-        while (thisEdge != null && otherEdge != null) {
+        boolean thisPossiblyDominated = true;
+        boolean otherPossiblyDominated = true;
+
+        while ((thisPossiblyDominated || otherPossiblyDominated) && (thisEdge != null && otherEdge != null)) {
             if (thisEdge.getKey() < otherEdge.getKey()) {
-                /* this uses an arc that otherLoads does not use -> otherLoads cannot be dominated by this */
+                /* this uses an arc that otherLoads does not use -> otherLoads cannot be dominated */
+                otherPossiblyDominated = false;
+                thisEdge = thisIt.hasNext() ? thisIt.next() : null;
+            }
+            else if (thisEdge.getKey() > otherEdge.getKey()) {
+                /* otherLoads uses an arc that this does not use -> this cannot be dominated */
+                thisPossiblyDominated = false;
+                otherEdge = otherIt.hasNext() ? otherIt.next() : null;
+            }
+            else {
+                /* otherLoads and this both use the same arc -> we compare the loads on the arc */
+                if (otherEdge.getLoad() - thisEdge.getLoad() > PRECISION) {
+                    thisPossiblyDominated = false;
+                }
+                else if (thisEdge.getLoad() - otherEdge.getLoad() > PRECISION) {
+                    otherPossiblyDominated = false;
+                }
+                thisEdge = thisIt.hasNext() ? thisIt.next() : null;
+                otherEdge = otherIt.hasNext() ? otherIt.next() : null;
+            }
+        }
+
+        /* If one has still edges to process while the other has finished, then it cannot dominate the other */
+        if (thisEdge == null && otherEdge != null) {
+            thisPossiblyDominated = false;
+        }
+        else if (otherEdge == null && thisEdge != null) {
+            otherPossiblyDominated = false;
+        }
+
+        if (!thisPossiblyDominated && !otherPossiblyDominated) {
+            /* None dominate each other */
+            return 0;
+        }
+        else if (thisPossiblyDominated && !otherPossiblyDominated) {
+            /* other dominates this */
+            return -1;
+        }
+        else {
+            /* Either both are "possiblyDominated" and they are equivalent or this dominates other */
+            return 1;
+        }
+
+
+        /*while (thisEdge != null && otherEdge != null) {
+            if (thisEdge.getKey() < otherEdge.getKey()) {
+                /* this uses an arc that otherLoads does not use -> otherLoads cannot be dominated by this *//*
                 return false;
             }
             else if (thisEdge.getKey() > otherEdge.getKey()) {
-                /* otherLoads uses an arc that this does not exist -> we continue the search */
+                /* otherLoads uses an arc that this does not exist -> we continue the search *//*
                 otherEdge = otherIt.hasNext() ? otherIt.next() : null;
             } else {
-                /* otherLoads and this both use the current arc -> we compare the loads on the arc */
+                /* otherLoads and this both use the current arc -> we compare the loads on the arc *//*
                 if (otherEdge.getLoad()+PRECISION < thisEdge.getLoad()) {
                     return false;
                 } else {
@@ -141,8 +191,8 @@ public class EdgeLoadsLinkedList implements Cloneable, Iterable<EdgePair> {
          On the other hand if thisEdge != null, since we broke out of the loop we know that otherEdge == null.
          This means that there exists an edge in "this" that is not used in otherLoads, so it cannot be dominated, and
          we return false
-        */
-        return thisEdge == null;
+        *//*
+        return thisEdge == null;*/
     }
 
     /**

@@ -23,6 +23,7 @@ class SegmentTreeLeaf {
     protected final SegmentTreeLeaf[] children;
     protected final EdgeLoadsLinkedList edgeLoads;
     protected final LinkedList<SegmentTreeLeaf> adjacencyChildren;
+    private boolean isDominated = false;
 
     /**
      * Constructor of a leaf. This constructor is called from the root and therefore creates an "origin leaf" for the
@@ -54,7 +55,7 @@ class SegmentTreeLeaf {
                 int destNode = root.edgeDest[edgeNumber];
                 EdgeLoadsLinkedList nodeSegmentLoads = root.edgeLoadPerPair[currentNodeNumber][destNode];
                 EdgeLoadsLinkedList adjacencySegmentLoads = new EdgeLoadsLinkedList(edgeNumber);
-                if (!nodeSegmentLoads.dominates(adjacencySegmentLoads)) {
+                if (nodeSegmentLoads.dominates(adjacencySegmentLoads) != 1) {
                     if (parallelLinksHelper[destNode] == null){
                         parallelLinksHelper[destNode] = new LinkedList<>();
                     }
@@ -265,5 +266,22 @@ class SegmentTreeLeaf {
         else {
             parent.adjacencyChildren.remove(this);
         }
+    }
+
+    /**
+     * Sets the isDominated boolean to true.
+     * This value indicates whether a node in the tree is dominated or not.
+     * This can happen when longer paths dominate shorter ones.
+     */
+    public void setDominated() {
+        isDominated = true;
+    }
+
+    /**
+     * Returns whether the path is dominated (by a longer path in the tree)
+     * @return true if dominated
+     */
+    public boolean getIsDominated() {
+        return isDominated;
     }
 }

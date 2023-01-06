@@ -29,8 +29,8 @@ public class SegmentTreeRoot {
     public final int[] edgeWeights;
     public final double[] edgeCapacity;
     /*
-     For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the leaves
-     having origin and destination respectively as origin and destination nodes
+     For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the non-dominated
+     leaves having origin and destination respectively as origin and destination nodes
     */
     private LinkedList<SegmentTreeLeaf>[][] ODPaths;
 
@@ -264,26 +264,22 @@ public class SegmentTreeRoot {
         while (iterator.hasNext()) {
             nextPath = iterator.next();
             nextPathLoads = nextPath.getEdgeLoads();
+            int res = nextPathLoads.dominates(newPathEdgeLoads);
             if (nextPath.depth < depth) {
-                if (nextPathLoads.dominates(newPathEdgeLoads)) {
+                if (res == 1) {
                     return true;
                 }
-                /*
-                 TODO
-                 We do not test the case where a longer path might dominate a shorter path.
-                 From experience, this never happens, and we have the intuition that it simply cannot happen.
-                 Longer paths can indeed dominate shorter paths, but we think that in such a case, the shorter path
-                 would already have been dominated by another path of same size or shorter, meaning that the path would
-                 not be in the tree in the first place.
-                 Furthermore, because of the tree structure, deleting a dominated shorter path would be rather difficult,
-                 and we decided to not implement this as even if this case happens, it is extremely rare.
-                */
+                else if (res == -1) {
+                    nextPath.setDominated();
+                    // Remove from LinkedList
+                    iterator.remove();
+                }
             }
             else {
-                if (nextPathLoads.dominates(newPathEdgeLoads)) {
+                if (res == 1) {
                     return true;
                 }
-                if (newPathEdgeLoads.dominates(nextPathLoads)) {
+                else if (res == -1) {
                     // Remove from LinkedList
                     iterator.remove();
                     // Remove from tree
@@ -295,8 +291,8 @@ public class SegmentTreeRoot {
     }
 
     /**
-     * Gets all SR-paths going from originNode to destinationNode in the form of an array of array of integers, each
-     * element of the first array corresponding to a path and each element of the second array corresponding to a node
+     * Gets all non-dominated SR-paths going from originNode to destinationNode in the form of an array of array of integers,
+     * each element of the first array corresponding to a path and each element of the second array corresponding to a node
      * visited by the path.
      * @param originNode the origin node of all the paths to be fetched.
      * @param destNode the destination node of all the paths to be fetched.
