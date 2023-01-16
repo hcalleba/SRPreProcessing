@@ -94,7 +94,7 @@ public class SegmentTreeRoot {
             /* Sort the indices of sp.distance[dest] */
             ComparableIntPair[] nodesSortedByDistance = new ComparableIntPair[nNodes];
             for (int i = 0; i < nNodes; i++) {
-                nodesSortedByDistance[i] = new ComparableIntPair(i, sp.distance[dest][i]);
+                nodesSortedByDistance[i] = new ComparableIntPair(i, sp.distance[i][dest]);
             }
             Arrays.sort(nodesSortedByDistance);
 
