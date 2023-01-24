@@ -79,7 +79,7 @@ class SegmentTreeLeaf {
                     Integer edgeNumberAdjacency = adjacencyIterator.next();
                     int edgeNumberNode = nodeIterator.next().getKey();
                     boolean allEqual = edgeNumberNode == edgeNumberAdjacency;
-                    while (adjacencyIterator.hasNext() && allEqual) {
+                    while (adjacencyIterator.hasNext() && nodeIterator.hasNext() && allEqual) {
                         edgeNumberAdjacency = adjacencyIterator.next();
                         edgeNumberNode = nodeIterator.next().getKey();
                         // Test if weight and capacity are equal
@@ -89,7 +89,7 @@ class SegmentTreeLeaf {
                         // to add all the edges.
                         allEqual = allEqual && (edgeNumberNode == edgeNumberAdjacency);
                     }
-                    if (!allEqual || nodeIterator.hasNext()) {
+                    if (!allEqual || nodeIterator.hasNext() || adjacencyIterator.hasNext()) {
                         for (Integer edgeNumber : parallelLinksHelper[destNode]) {
                             addChild(edgeNumber + root.nNodes, new EdgeLoadsLinkedList(edgeNumber));
                         }
