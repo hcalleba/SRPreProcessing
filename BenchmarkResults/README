@@ -1,0 +1,27 @@
+The python files should be usable if your terminal is located in the directory, they will show some graphs that can be obtained when analysing the results. (TODO currently the py files are made for the previous results which were stored differently)
+
+The results in the InverseCapacity folder are obtained using the topologies with ospf weight setting set to the inverse of the capacity. 
+
+The results in OSPF are the results obtained after using the ospf weight optimisation technique called tabuIGPWO from Repetita (although this implementation could probably be bettered as it never stops before the time limit). The maximum utilisation before optimisation for the inverse capacity is also shown here. (TODO should probably move that column to a new file in InverseCapacity folder)
+
+The results in OSPF_SR are obtained after using the SRPP technique on the networks optimised by the tabuIGPWO technique.
+
+Topologies simply lists the number of nodes and edges each topology has.
+
+The results in Unary are obtained using SRPP on the topologies with ospf weights defaulted to unary weights.
+
+- SRPP is the method solving the SRTEP using a formulation very similar to the one from Bhatia and using a preprocessing technique to remove dominated paths. The csv files for this technique are separated in "preprocess" and "solve"; preprocess are the results obtained for preprocessing and solve are the results after solving the LP with the preprocessed paths.
+- full uses the same formulation but does not use the preprocessing step
+- MIP-NO-SPLIT uses a different formulation based on flows rather than paths. It is supposed to scale better than the path formulation because the LP model does not grow exponentially with the number of SR paths. ALthough for 2-SR the model is bigger, for 3-SR both models are equivalent and only starting from 4-SR should this model bring benefits.
+- CG4SR is the technique developed by Jadin M., Aubry F., Schauss P. and Bonaventure O. and is a heuristic using column generation to solve the SRTEP near optimally.
+
+ALL the demand files used come from the same data folder (data/2016TopologyZooUCL_inverseCapacity), this is for correct comparisons as the demand files from the unary and inverse capacity folders are different.
+
+Generally the aim was to allow for a maximum of 30 minutes to optimise the networks. ALthough for SRPP, since the preprocessing could be done once and used for the multiple demand files of the same topology, 30 minutes maximum were allowed for preprocessing and 30 minutes were allowed to solve the problem, which means it could potentially use up to 1 hour in total (in practice after 30 minutes of tota times it rarely gives any good solution), when comparing results one should then verify that the results obtained were obtained in less than 1800 seconds.
+In the case of OSPF_SR, 30 minutes were used to optimise the topology, but since the topologies were then different, the preprocessing and solving step were done together ensuring that this step would not exceed 30 minutes (Since the tabuIGPWO technique always stops right after 30 minutes technically, both steps together always take more than 30 minutes, so this technique is not entirely fair compared to the other ones)
+
+The results were obtained using 60 GB of RAM. For "SRPP" and "full" we used 8 CPUs as we first tried using 1, 8 and 16 CPUs and while the results were not very different, 8 CPUs seemes to be the most consistent. "MIP-NO-SPLIT" was defaulted to use 4 CPUs and since it was not specified for CG4SR, it most likely used all 16 CPUs.
+For OSPF, since it always took over 30 minutes of computation time, 10 topologies were always processed together and only 12 GB of RAM were allowed to have the computations not take too long.
+
+The first test sets were ran for InverseCapacity, in the meantime I slightly improved some parts to remove even more SR-paths, this means that tests ran now could be slightly different although the number of paths removed is very small and practically the same results should be obtained w.r.t. computation time (and w.r.t. max utilisation since it is still optimal the results should be tha same)
+The results for unary and OSPF_SR should on the other hand be exactly the same for the majority, this is because I only ran tests on topologies in which the flows were different from one technique to another. Some topologies in the InverseCapacity setting all have the same weight on each arc, in then is equivalent to the unary weight setting, some times the tabuIGPWO did not change any weight neither, in these cases the tests were not ran again (in fact for unary, I did the preprocessing again, but did not solve the LP again, for the OSPF_SR, the topologies were neither preprocessed nor was the LP solved)
