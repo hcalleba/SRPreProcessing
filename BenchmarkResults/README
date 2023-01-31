@@ -1,4 +1,4 @@
-The python files should be usable if your terminal is located in the directory, they will show some graphs that can be obtained when analysing the results. (TODO currently the py files are made for the previous results which were stored differently)
+The python files should be usable if your terminal is located in the directory, they will show some graphs that can be obtained when analysing the results.
 
 The results in the InverseCapacity folder are obtained using the topologies with ospf weight setting set to the inverse of the capacity. 
 
