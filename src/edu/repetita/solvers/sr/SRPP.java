@@ -100,10 +100,8 @@ public class SRPP extends SRSolver {
         /* Log output */
         RepetitaWriter.appendToOutput("OK");
         RepetitaWriter.appendToOutput("Preprocessing time : " + (double)preprocessingTime/1000 + " seconds");
-        RepetitaWriter.appendToOutput("ILP solve time : " + (double)ILPSolveTime/1000 + " seconds");
-        RepetitaWriter.appendToOutput("Total time elapsed : " + (double)(ILPSolveTime+preprocessingTime)/1000 + " seconds");
-        RepetitaWriter.appendToOutput("Total number of paths after preprocessing : " + nbPaths);
-        RepetitaWriter.appendToOutput("Objective value (uMax) : " + uMax + "\n");
+        RepetitaWriter.appendToOutput("Number of non-dominated paths after preprocessing : " + nbPaths);
+        RepetitaWriter.appendToOutput("Number of shorter dominated paths : " + root.dominationCounter);
     }
 
     /**

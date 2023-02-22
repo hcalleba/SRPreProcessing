@@ -2,6 +2,7 @@ package edu.repetita.solvers.sr.srpp.segmenttree;
 
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
+import edu.repetita.io.RepetitaWriter;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
@@ -33,6 +34,7 @@ public class SegmentTreeRoot {
      leaves having origin and destination respectively as origin and destination nodes
     */
     private LinkedList<SegmentTreeLeaf>[][] ODPaths;
+    public int dominationCounter = 0;
 
     /**
      * Constructor for the root of the SegmentTree
@@ -273,6 +275,8 @@ public class SegmentTreeRoot {
                     nextPath.setDominated();
                     // Remove from LinkedList
                     iterator.remove();
+                    dominationCounter += 1;
+                    RepetitaWriter.appendToOutput("One more : " + String.valueOf(dominationCounter));
                 }
             }
             else {
