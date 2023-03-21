@@ -1,7 +1,13 @@
 import csv
 import matplotlib.pyplot as plt
+import matplotlib.rcsetup
 
 if __name__ == "__main__":
+    font = {'family' : 'DejaVu Sans',
+        'weight' : 'normal',
+        'size'   : 22}
+    matplotlib.rc('font', **font)
+    
     with open("OSPF/tabuIGPWO.csv", "r") as f:
         reader = csv.reader(f)
         next(reader)        # Skip header
@@ -25,22 +31,14 @@ if __name__ == "__main__":
         if abs(valtabusr2 - valtabu) > 0.01:
             plot_tabu.append(valtabu)
             plot_tabusr2.append(valtabusr2)
-            diff.append(valtabusr2 - valtabu)
+            diff.append(valtabu - valtabusr2)
 
     a, b, c = zip(*sorted(zip(plot_tabusr2, plot_tabu, diff), key=lambda pair : pair[2]))
 
     ind = list(range(len(a)))
     width = 0.4
-    plt.bar(ind, a, width, label="TabuIGPWO + 2-SRPP")
-    plt.bar([x+width for x in ind], b, width, label="TabuIGPWO")
+    plt.bar(ind, a, width, label="TabuIGPWO + 2-SRPP", color="goldenrod")
+    plt.bar([x+width for x in ind], b, width, label="TabuIGPWO", color="tab:brown")
     plt.legend()
-    plt.show()
-
-    a, b = zip(*sorted(zip(plot_tabusr2, plot_tabu), key=lambda pair : pair[0]))
-
-    ind = list(range(len(a)))
-    width = 0.4
-    plt.bar(ind, a, width, label="TabuIGPWO + 2-SRPP")
-    plt.bar([x+width for x in ind], b, width, label="TabuIGPWO")
-    plt.legend()
+    plt.xlim(-0.6, len(a))
     plt.show()

@@ -1,5 +1,6 @@
 import csv
 import matplotlib.pyplot as plt
+import matplotlib.rcsetup
 
 def add_to_list(lst, line, idx, treshold=1800):
     try:
@@ -21,6 +22,11 @@ if __name__ == "__main__":
     full2 = []
     full3 = []
     MIP2 = []
+
+    font = {'family' : 'DejaVu Sans',
+        'weight' : 'normal',
+        'size'   : 22}
+    matplotlib.rc('font', **font)
 
     with open(directory + "/" + filenames[0]) as f:
         reader = csv.reader(f)
@@ -73,9 +79,5 @@ if __name__ == "__main__":
     axs[1].legend()
     axs[0].set(xscale="log", xlabel="Solve time (seconds)", ylabel="Number of instances solved")
     axs[1].set(xscale="log", xlabel="Solve time (seconds)")
-    #axs[0].xscale('log')
-    #axs[1].xscale('log')
-    #fig.ylabel("Number of instances solved")
-    #fig.xlabel("Solve time (seconds)")
-    
+    plt.tight_layout()    
     plt.show()

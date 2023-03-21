@@ -1,7 +1,13 @@
 import csv
 import matplotlib.pyplot as plt
+import matplotlib.rcsetup
 
 if __name__ == "__main__":
+    font = {'family' : 'DejaVu Sans',
+        'weight' : 'normal',
+        'size'   : 22}
+    matplotlib.rc('font', **font)
+    
     with open("Unary/SRPP_solve.csv", "r") as f:
         reader = csv.reader(f)
         next(reader)        # Skip header
@@ -39,13 +45,6 @@ if __name__ == "__main__":
     plt.bar(ind, a, width, label="Unary 3-SRPP")
     plt.bar([x+width for x in ind], b, width, label="InvCap 3-SRPP")
     plt.legend()
-    plt.show()
-
-    a, b = zip(*sorted(zip(plot_b, plot_a), key=lambda pair : pair[0]))
-
-    ind = list(range(len(a)))
-    width = 0.4
-    plt.bar(ind, a, width, label="Unary 3-SRPP")
-    plt.bar([x+width for x in ind], b, width, label="InvCap 3-SRPP")
-    plt.legend()
+    plt.xlim(-0.6, len(a))
+    plt.title("3-SR")
     plt.show()
