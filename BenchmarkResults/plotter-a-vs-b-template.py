@@ -55,4 +55,4 @@ if __name__ == "__main__":
     axs[1,0].bar(ind, a3, width, label=file_a[:-4], color="tab:red")
     axs[1,0].bar([x+width for x in ind], b3, width, label=file_b[:-4] , color="tab:green")
 
-    fig.show()
+    plt.show()
