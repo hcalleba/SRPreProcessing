@@ -5,7 +5,7 @@ import matplotlib.rcsetup
 if __name__ == "__main__":
     font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 42}
     matplotlib.rc('font', **font)
     
     with open("Unary/SRPP_solve.csv", "r") as f:

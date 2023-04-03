@@ -6,7 +6,7 @@ if __name__ == "__main__":
 
     font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 42}
     matplotlib.rc('font', **font)
 
     with open("InverseCapacity/CG4SR.csv", "r") as f:
