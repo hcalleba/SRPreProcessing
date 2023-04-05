@@ -5,7 +5,7 @@ import matplotlib.rcsetup
 if __name__ == "__main__":
     font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 42}
     matplotlib.rc('font', **font)
 
     with open("InverseCapacity/SRPP_solve.csv", "r") as f:
@@ -39,8 +39,8 @@ if __name__ == "__main__":
 
     ind = list(range(len(a)))
     width = 0.4
-    plt.bar([x+width for x in ind], b, width, label="3-SR" , color="tab:orange")
-    plt.bar(ind, a, width, label="2-SR", color="tab:blue")
+    plt.bar([x+width for x in ind], a, width, label="2-SR" , color="tab:blue")
+    plt.bar(ind, b, width, label="3-SR", color="tab:orange")
     plt.legend()
     plt.xlim(-0.6, len(a))
     plt.show()
