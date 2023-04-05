@@ -33,7 +33,23 @@ for i in range(len(initialweightsarray)):
     for j in initialweightsarray[i]:
         matrix[i][j - 1] += 1
 
-matrixPrint(matrix)
+with open ("../unaryGraphs/2-SRmatrix", "w+") as f:
+    f.write(str(matrix))
 
-plt.boxplot(initialweightsarray)
-plt.show()
+
+for file in os.listdir('.'):
+    split = file.split(".")
+    if split[-1] == "out" and split[-2] == "3":
+        with open(file, 'r') as f:
+            for line in f:
+                split = line.split(",")
+                addToArray(int(split[0]), int(split[1]), initialweightsarray)
+
+maximum = maxSubArray(initialweightsarray)
+matrix = [[0 for _ in range(maximum)] for _ in range(len(initialweightsarray))]
+for i in range(len(initialweightsarray)):
+    for j in initialweightsarray[i]:
+        matrix[i][j - 1] += 1
+
+with open ("../unaryGraphs/3-SRmatrix", "w+") as f:
+    f.write(str(matrix))
