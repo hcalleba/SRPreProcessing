@@ -5,7 +5,7 @@ import matplotlib.rcsetup
 if __name__ == "__main__":
     font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 30}
     matplotlib.rc('font', **font)
     
     with open("Unary/SRPP_solve.csv", "r") as f:
@@ -33,13 +33,20 @@ if __name__ == "__main__":
             plot_b.append(val_b)
             diff.append(val_b - val_a)
             
-    a, b, c = zip(*sorted(zip(plot_b, plot_a, diff), key=lambda pair : pair[2]))
+    b, a, c = zip(*sorted(zip(plot_b, plot_a, diff), key=lambda pair : pair[2]))
 
     ind = list(range(len(a)))
     width = 0.4
-    plt.bar(ind, a, width, label="Unary 2-SRPP")
-    plt.bar([x+width for x in ind], b, width, label="InvCap 2-SRPP")
+    plt.bar(ind, a, width, label="Unary 2-SR", color="tab:orange")
+    plt.bar([x+width for x in ind], b, width, label="InvCap 2-SR", color="tab:blue")
     plt.legend()
     plt.xlim(-0.6, len(a))
     plt.title("2-SR")
+
+    def on_resize(event):
+        plt.tight_layout()
+        plt.gcf().canvas.draw()
+
+    cid = plt.gcf().canvas.mpl_connect('resize_event', on_resize)
+
     plt.show()

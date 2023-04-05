@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     ind = list(range(len(a)))
     width = 0.4
-    plt.bar(ind, a, width, label="TabuIGPWO + 2-SRPP", color="goldenrod")
+    plt.bar(ind, a, width, label="TabuIGPWO + 2-SR", color="goldenrod")
     plt.bar([x+width for x in ind], b, width, label="TabuIGPWO", color="tab:brown")
     plt.legend()
     plt.xlim(-0.6, len(a))

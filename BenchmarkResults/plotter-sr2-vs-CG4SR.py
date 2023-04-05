@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
     ind = list(range(len(a)))
     width = 0.4
-    plt.bar(ind, a, width, label="CG4SR 3 segments", color="y")
-    plt.bar([x+width for x in ind], b, width, label="3-SR no adjacency", color="m")
+    plt.bar(ind, a, width, label="3-SR no adjacency", color="y")
+    plt.bar([x+width for x in ind], b, width, label="CG4SR 3 segments", color="m")
     plt.legend()
     plt.xlim(-0.6, len(a))
     plt.show()

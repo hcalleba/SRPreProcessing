@@ -5,7 +5,7 @@ import matplotlib.rcsetup
 if __name__ == "__main__":
     font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 30}
     matplotlib.rc('font', **font)
     
     with open("OSPF/tabuIGPWO.csv", "r") as f:
@@ -40,4 +40,12 @@ if __name__ == "__main__":
     plt.bar([x+width for x in ind], b, width, label="TabuIGPWO", color="tab:brown")
     plt.legend()
     plt.xlim(-2, len(a)+1+width)
+    plt.tight_layout()
+
+    def on_resize(event):
+        plt.tight_layout()
+        plt.gcf().canvas.draw()
+
+    cid = plt.gcf().canvas.mpl_connect('resize_event', on_resize)
+
     plt.show()
