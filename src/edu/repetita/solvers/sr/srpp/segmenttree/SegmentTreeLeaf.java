@@ -24,6 +24,7 @@ class SegmentTreeLeaf {
     protected final EdgeLoadsLinkedList edgeLoads;
     protected final LinkedList<SegmentTreeLeaf> adjacencyChildren;
     private boolean isDominated = false;
+    private final int distance;
 
     /**
      * Constructor of a leaf. This constructor is called from the root and therefore creates an "origin leaf" for the
@@ -32,6 +33,7 @@ class SegmentTreeLeaf {
      * @param root The root of the segment path's tree
      */
     protected SegmentTreeLeaf(int currentNodeNumber, SegmentTreeRoot root) {
+        this.distance=0;
         this.currentNodeNumber = currentNodeNumber;
         this.originNodeNumber = currentNodeNumber;
         this.parent = null;
@@ -118,6 +120,7 @@ class SegmentTreeLeaf {
         }
         this.edgeLoads = edgeLoads;
         this.adjacencyChildren = new LinkedList<>();
+        distance = parent.distance + +root.getDistance(parent.currentNodeNumber, this.currentNodeNumber);
     }
 
     /**
@@ -160,7 +163,7 @@ class SegmentTreeLeaf {
             EdgeLoadsLinkedList result;
             SegmentTreeLeaf leafToSubPath = root.getLeafFromPath(getTestingPath());
             for (SegmentTreeLeaf child : leafToSubPath.children) {
-                if (child != null && originNodeNumber != child.currentNodeNumber) {
+                if (child != null && originNodeNumber != child.currentNodeNumber && heuristicCondition(child.currentNodeNumber)) { // TODO add here new constraint
                     result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, child.currentNodeNumber));
                     if (!root.testNewPathDomination(result, originNodeNumber, child.currentNodeNumber, this.depth+1)) {
                         addChild(child.currentNodeNumber, result);
@@ -170,7 +173,7 @@ class SegmentTreeLeaf {
             for (SegmentTreeLeaf child : leafToSubPath.adjacencyChildren) {
                 int edgeNumber = child.currentNodeNumber - root.nNodes;
                 int destNode = root.edgeDest[edgeNumber];
-                if (originNodeNumber != destNode) {
+                if (originNodeNumber != destNode && heuristicCondition(child.currentNodeNumber)) { // TODO add here new constraint
                     result = EdgeLoadsLinkedList.add(edgeLoads, new EdgeLoadsLinkedList(edgeNumber));
                     if (!root.testNewPathDomination(result, originNodeNumber, destNode, this.depth+1)) {
                         addChild(child.currentNodeNumber, result);
@@ -283,5 +286,14 @@ class SegmentTreeLeaf {
      */
     public boolean getIsDominated() {
         return isDominated;
+    }
+
+    public boolean heuristicCondition(int newNode) {
+        int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
+        return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
+    }
+
+    private static int heuristicDistanceFormula(int i) {
+        return 2*i+1;
     }
 }

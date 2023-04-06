@@ -5,6 +5,7 @@ import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.solvers.sr.srpp.ComparableIntPair;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
+import edu.repetita.utils.datastructures.Pair;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -28,6 +29,7 @@ public class SegmentTreeRoot {
     public final int[] edgeDest;
     public final int[] edgeWeights;
     public final double[] edgeCapacity;
+    public final int[][] distancePerPair;
     /*
      For each origin destination pair, the list ODPaths[origin][destination] contains pointers to all the non-dominated
      leaves having origin and destination respectively as origin and destination nodes
@@ -51,7 +53,9 @@ public class SegmentTreeRoot {
             this.trafficMatrix = null;
         }
 
-        double [][][] tempLoads = makeEdgeLoadPerPair(topology);
+        Pair<double[][][], int[][]> tempPair = makeEdgeLoadPerPair(topology);
+        double [][][] tempLoads = tempPair.a;
+        distancePerPair = tempPair.b;
         this.edgeLoadPerPair = new EdgeLoadsLinkedList[nNodes][nNodes];
         for (int destNode = 0; destNode < nNodes; destNode++) {
             for (int originNode = 0; originNode < nNodes; originNode++) {
@@ -79,7 +83,7 @@ public class SegmentTreeRoot {
      * @param topology the topology of the network
      * @return edgeLoadPair[][][] as explained above
      */
-    public static double[][][] makeEdgeLoadPerPair(Topology topology) {
+    public Pair<double[][][], int[][]> makeEdgeLoadPerPair(Topology topology) {
 
         int nEdges = topology.nEdges;
         int nNodes = topology.nNodes;
@@ -104,7 +108,7 @@ public class SegmentTreeRoot {
                 fillEdgeUsage(dest, origin, edgeLoadPerPair[dest], sp, nEdges);
             }
         }
-        return edgeLoadPerPair;
+        return new Pair(edgeLoadPerPair, sp.distance);
     }
 
     /**
@@ -339,5 +343,18 @@ public class SegmentTreeRoot {
          in this case
         */
         System.gc();
+    }
+
+    public int getDistance(int startNode, int endNode) {
+        int distance = 0;
+        if (startNode >= nNodes) {
+            startNode = edgeDest[startNode-nNodes];
+        }
+        if (endNode >= nNodes) {
+            distance += edgeWeights[endNode-nNodes];
+            endNode = edgeSrc[endNode-nNodes];
+        }
+        distance += distancePerPair[startNode][endNode];
+        return distance;
     }
 }
