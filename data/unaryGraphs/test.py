@@ -1,31 +1,22 @@
 import matplotlib.pyplot as plt
-import matplotlib.colors
 
+def box_plot(data, edge_color, fill_color):
+    bp = ax.boxplot(data, patch_artist=True)
+    
+    for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
+        plt.setp(bp[element], color=edge_color)
 
-with open("2-SRmatrix.mat", "r") as f:
-    mat2 = eval(f.readline())
+    for patch in bp['boxes']:
+        patch.set(facecolor=fill_color)       
+        
+    return bp
+    
+example_data1 = [[1,2,0.8], [0.5,2,2], [3,2,1]]
+example_data2 = [[5,3, 4], [6,4,3,8], [6,4,9]]
 
-newmat = []
-
-for i in mat2:
-    somme = sum(i)
-    i.append(somme)
-    newmat.append([])
-    for j in i:
-        newmat[-1].append(j/somme)
-
-plt.imshow(newmat, cmap="magma_r", interpolation='None', norm=matplotlib.colors.LogNorm())
-
-for i in range(len(mat2)):
-    for j in range(len(mat2[0])):
-        text = plt.text(j, i, mat2[i][j], ha="center", va="center", color="w", fontsize=6)
-xlabels = list(range(1, len(newmat[0])))
-xlabels.append("Total")
-plt.xticks(range(len(newmat[0])), xlabels, rotation=45)
-plt.yticks(range(len(newmat)), range(1, len(newmat)+1))
-plt.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-
-plt.title("2-SR")
-
-plt.colorbar()
+fig, ax = plt.subplots()
+bp1 = box_plot(example_data1, 'red', 'tan')
+bp2 = box_plot(example_data2, 'blue', 'cyan')
+ax.legend([bp1["boxes"][0], bp2["boxes"][0]], ['Data 1', 'Data 2'])
+ax.set_ylim(0, 10)
 plt.show()
