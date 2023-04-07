@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 
-NBSR = "3"
+NBSR = "2"
 
 def on_resize(event):
         plt.tight_layout()
@@ -36,6 +36,9 @@ plt.yticks(range(len(newmat)), range(1, len(newmat)+1))
 plt.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
 
 plt.title(NBSR + "-SR")
+plt.gca().xaxis.set_label_position("top")
+plt.xlabel("Length of optimal SR-path")
+plt.ylabel("Length of shortest path")
 
 aspect = 20
 pad_fraction = 0.5
@@ -48,6 +51,6 @@ pad = axes_size.Fraction(pad_fraction, width)
 cax = divider.append_axes("right", size=width, pad=pad)
 plt.colorbar(im, cax=cax)
 
-cid = plt.gcf().canvas.mpl_connect('resize_event', on_resize)
+#cid = plt.gcf().canvas.mpl_connect('resize_event', on_resize)
 
 plt.show()
