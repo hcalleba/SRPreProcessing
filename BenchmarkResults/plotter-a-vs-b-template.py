@@ -1,16 +1,24 @@
 import csv
 import matplotlib.pyplot as plt
-
+import matplotlib.rcsetup
 
 # TO CHANGE DEPENDING ON THE COMPARISON NEEDED
-file_a = "InverseCapacity/SRPP_solve.csv"
-index_a_v = -2 # uMax index for 2-sr is [-2]
-index_a_t = -4 # TotalTime index for 2-sr is [-4]
-file_b = "InverseCapacity/SRPP_solve_noadj.csv"
-index_b_v = -2 # uMax index for 2-sr-noadj is [-2]
-index_b_t = -4 # TotalTime index for 2-sr-noadj is [-4]
+file_a = "Unary/SRPP_solve.csv"
+index_a_v = -2 # uMax index for template 1 is [-2]
+index_a_t = -4 # TotalTime index for template 1 is [-4]
+name_a = "Unary"
+
+file_b = "Unary_heuristic/SRPP_solve_2x+1.csv"
+index_b_v = -2 # uMax index for template 2 is [-2]
+index_b_t = -4 # TotalTime index for template 2 is [-4]
+name_b = "Unary heuristic 2x+1"
 
 if __name__ == "__main__":
+
+    font = {'family' : 'DejaVu Sans',
+        'weight' : 'normal',
+        'size'   : 42}
+    matplotlib.rc('font', **font)
 
     with open(file_a, "r") as f:
         reader = csv.reader(f)
@@ -38,21 +46,18 @@ if __name__ == "__main__":
         except ValueError:
             pass
     
-    a1, b1, c1 = zip(*sorted(zip(plot_a, plot_b, diff), key=lambda pair : pair[0]))
-    a2, b2, c2 = zip(*sorted(zip(plot_a, plot_b, diff), key=lambda pair : pair[1]))
-    a3, b3, c3 = zip(*sorted(zip(plot_a, plot_b, diff), key=lambda pair : pair[2], reverse=True))
+    a2, b2, c2 = zip(*sorted(zip(plot_a, plot_b, diff), key=lambda pair : pair[2], reverse=True))
 
-    ind = list(range(len(a1)))
-    fig, axs = plt.subplots(2,2)
+    ind = list(range(len(a2)))
     width = 0.4
-    axs[0,0].bar(ind, a1, width, label=file_a[:-4], color="tab:red")
-    axs[0,0].bar([x+width for x in ind], b1, width, label=file_b[:-4] , color="tab:green")
-    axs[0,0].legend()
 
-    axs[0,1].bar(ind, a2, width, label=file_a[:-4], color="tab:red")
-    axs[0,1].bar([x+width for x in ind], b2, width, label=file_b[:-4] , color="tab:green")
+    plt.bar(ind, a2, width, label=name_a, color="tab:red")
+    plt.bar([x+width for x in ind], b2, width, label=name_b , color="tab:green")
+    plt.legend()
 
-    axs[1,0].bar(ind, a3, width, label=file_a[:-4], color="tab:red")
-    axs[1,0].bar([x+width for x in ind], b3, width, label=file_b[:-4] , color="tab:green")
+    def on_resize(event):
+        plt.tight_layout()
+        plt.gcf().canvas.draw()
+    cid = plt.gcf().canvas.mpl_connect('resize_event', on_resize)
 
     plt.show()
