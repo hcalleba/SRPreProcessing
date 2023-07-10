@@ -294,6 +294,6 @@ class SegmentTreeLeaf {
     }
 
     private static int heuristicDistanceFormula(int i) {
-        return 2*i+1;
+        return (int)(1.1*i+3);
     }
 }
