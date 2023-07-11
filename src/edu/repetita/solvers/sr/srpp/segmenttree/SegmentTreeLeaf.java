@@ -162,18 +162,20 @@ class SegmentTreeLeaf {
         else { // Try to add all possible segments at the end
             EdgeLoadsLinkedList result;
             SegmentTreeLeaf leafToSubPath = root.getLeafFromPath(getTestingPath());
+            // Loop over all the children corresponding to node segments
             for (SegmentTreeLeaf child : leafToSubPath.children) {
-                if (child != null && originNodeNumber != child.currentNodeNumber && heuristicCondition(child.currentNodeNumber)) { // TODO add here new constraint
+                if (child != null && originNodeNumber != child.currentNodeNumber && heuristicCondition(child.currentNodeNumber)) {
                     result = EdgeLoadsLinkedList.add(edgeLoads, root.getODLoads(currentNodeNumber, child.currentNodeNumber));
                     if (!root.testNewPathDomination(result, originNodeNumber, child.currentNodeNumber, this.depth+1)) {
                         addChild(child.currentNodeNumber, result);
                     }
                 }
             }
+            // Loop over all the children corresponding to node segments
             for (SegmentTreeLeaf child : leafToSubPath.adjacencyChildren) {
                 int edgeNumber = child.currentNodeNumber - root.nNodes;
                 int destNode = root.edgeDest[edgeNumber];
-                if (originNodeNumber != destNode && heuristicCondition(child.currentNodeNumber)) { // TODO add here new constraint
+                if (originNodeNumber != destNode && heuristicCondition(child.currentNodeNumber)) {
                     result = EdgeLoadsLinkedList.add(edgeLoads, new EdgeLoadsLinkedList(edgeNumber));
                     if (!root.testNewPathDomination(result, originNodeNumber, destNode, this.depth+1)) {
                         addChild(child.currentNodeNumber, result);
@@ -289,6 +291,8 @@ class SegmentTreeLeaf {
     }
 
     public boolean heuristicCondition(int newNode) {
+        // TODO parametrize, for now if you don't want to use the heuristic just uncomment the next line
+        // return true;
         int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
         return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
     }

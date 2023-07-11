@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 
+/**
+ * This Main function was used to compare the size of the shortest path with the size of the path i the optimal solution.
+ */
 public class UnaryMainTest {
 
     final static String pathsDir = "data/unaryPaths/";
