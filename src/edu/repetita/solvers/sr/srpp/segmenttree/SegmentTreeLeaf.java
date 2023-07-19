@@ -292,9 +292,9 @@ class SegmentTreeLeaf {
 
     public boolean heuristicCondition(int newNode) {
         // TODO parametrize, for now if you don't want to use the heuristic just uncomment the next line
-        // return true;
-        int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
-        return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
+        return true;
+        //int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
+        //return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
     }
 
     private static int heuristicDistanceFormula(int i) {
