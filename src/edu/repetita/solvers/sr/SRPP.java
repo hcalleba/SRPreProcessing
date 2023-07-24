@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
+import edu.repetita.utils.binomial;
 import gurobi.*;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
@@ -32,6 +33,9 @@ public class SRPP extends SRSolver {
     String inpathsFilename;
     String scenarioChoice;
     double uMax = 0.0;
+
+    int gammaParameter = 2; // TODO parametrize
+    double percentageDeviation = 0.5; // TODO parametrize
 
     public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
         super();
@@ -92,7 +96,7 @@ public class SRPP extends SRSolver {
             if (scenarioChoice.equals("preprocess")) {
                 preprocessedPathsToFile(paths);
             } else {
-                uMax = solveILP(paths, root, topology, endTime);
+                uMax = solveRobustILP(paths, root, topology, endTime);
             }
         }
         ILPSolveTime = System.currentTimeMillis() - startTime;
@@ -309,7 +313,7 @@ public class SRPP extends SRSolver {
     }
 
     /**
-     * Creates the Robust ILP and solves it based on the information given
+     * Creates the Robust ILP and solves it based on the information given using the dual method
      * @param paths list of all SR-paths that could potentially be used in a solution
      * @param root the root of the segmentTree, it contains the trafficMatrix and edge usage for every OSPF routing
      *             between any OD pair
@@ -317,9 +321,6 @@ public class SRPP extends SRSolver {
      * @return the uMax found by the ILP program
      */
     private double solveRobustILP (ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology, long endTime) {
-        int gammaParameter = 2; // TODO parametrize
-        double percentageDeviation = 0.5; // TODO parametrize
-
         try {
             /* Create empty environment, set options, and start */
             GRBEnv env = new GRBEnv(true);
@@ -428,7 +429,7 @@ public class SRPP extends SRSolver {
                         int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
                         // root.trafficMatrix[startNode][endNode]*percentageDeviation corresponds here to c_{st}
                         robustExpr[edgePair.getKey()][startNode][endNode].addTerm(
-                                root.trafficMatrix[startNode][endNode]*percentageDeviation*edgePair.getLoad(), SRPaths[i]);
+                                -root.trafficMatrix[startNode][endNode]*percentageDeviation*edgePair.getLoad(), SRPaths[i]);
                     }
                 }
             }
@@ -441,6 +442,120 @@ public class SRPP extends SRSolver {
             }
 
 
+            // model.write("out/model.lp");
+
+            /* Optimize model */
+            model.optimize();
+
+            /* Write solution to file */
+            StringBuilder builder = new StringBuilder();
+            builder.append("Each row corresponds to an SR-path used for routing in the form: \n");
+            builder.append("[originNode, firstSegmentNode, ..., destinationNode]\n");
+            for (int i=0; i < paths.size(); i++) {
+                if (SRPaths[i].get(GRB.DoubleAttr.X) != 0.0) {
+                    builder.append(Arrays.toString(paths.get(i))).append("\n");
+                }
+            }
+            RepetitaWriter.writeToPathFile(builder.toString());
+            double result = model.get(GRB.DoubleAttr.ObjVal);
+
+            /* Dispose of model and environment */
+            model.dispose();
+            env.dispose();
+            return result;
+
+        } catch(GRBException e) {
+            System.out.println("Error code : " + e.getErrorCode() + ". " + e.getMessage());
+            return 0.0;
+        }
+    }
+
+    /**
+     * Creates the Robust ILP and solves it based on the information given using the (exponential) enumeration of all the possible TMs
+     * @param paths list of all SR-paths that could potentially be used in a solution
+     * @param root the root of the segmentTree, it contains the trafficMatrix and edge usage for every OSPF routing
+     *             between any OD pair
+     * @param topology the topology of the graph, used values are: nNodes, nEdges, and edgeCapacity[]
+     * @return the uMax found by the ILP program
+     */
+    private double solveRobustILPexp (ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology, long endTime) {
+        try {
+            /* Create empty environment, set options, and start */
+            GRBEnv env = new GRBEnv(true);
+            //env.set(GRB.IntParam.OutputFlag, 0);
+            env.set("logFile", "out/gurobi.log");
+            env.set(GRB.IntParam.LogToConsole, 0);
+            env.start();
+
+            /* Create empty model */
+            GRBModel model = new GRBModel(env);
+            model.set(GRB.DoubleParam.TimeLimit, (double) (endTime-System.currentTimeMillis())/1000);
+            model.set(GRB.IntParam.Threads, 8);
+
+            /* Create variables */
+            GRBVar[] SRPaths = new GRBVar[paths.size()];
+            for (int i = 0; i < paths.size(); i++) {
+                SRPaths[i] = model.addVar(0.0, 1.0, 0.0, GRB.BINARY, "SR-path-"+Arrays.toString(paths.get(i)));
+            }
+            GRBVar uMax = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "uMax");
+
+            /* Set objective */
+            GRBLinExpr objExpr = new GRBLinExpr();
+            objExpr.addTerm(1.0, uMax);
+            model.setObjective(objExpr, GRB.MINIMIZE);
+            //model.set(GRB.DoubleParam.OptimalityTol, 0.000000001);
+
+            /* Adding constraints */
+            /* CONSTRAINT : Sum of SR-paths for an OD pair is equal to one */
+            GRBLinExpr[][] uniquePathExpr = new GRBLinExpr[topology.nNodes][topology.nNodes];
+            for (int i = 0; i < topology.nNodes; i++) {
+                for (int j = 0; j < topology.nNodes; j++) {
+                    uniquePathExpr[i][j] = new GRBLinExpr();
+                }
+            }
+            for (int i = 0; i < paths.size(); i++) {
+                int[] path = paths.get(i);
+                int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
+                uniquePathExpr[path[0]][endNode].addTerm(1.0, SRPaths[i]);
+            }
+            for (int i = 0; i < topology.nNodes; i++) {
+                for (int j = 0; j < topology.nNodes; j++) {
+                    if(root.trafficMatrix[i][j] > 0) {
+                        model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
+                    }
+                }
+            }
+            /* CONSTRAINT : max utilisation */
+            int numberOfMatrices = (int) binomial.computeBinomial(topology.nNodes*topology.nNodes, gammaParameter)
+            GRBLinExpr[][] uMaxExpr = new GRBLinExpr[topology.nEdges][numberOfMatrices];
+            for (int i = 0; i < topology.nEdges; i++) {
+                for(int j = 0; j < numberOfMatrices; j++) {
+                    uMaxExpr[i][j] = new GRBLinExpr();
+                }
+            }
+            for (int i = 0; i < paths.size(); i++) {
+                int[] path = paths.get(i);
+                EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
+                for (EdgePair edgePair : edgeLoads) {
+                    if (edgePair.getLoad() != 0) {
+                        int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
+                        int matrixNumber = 0;
+                        for (int j = 0; j < topology.nNodes) {
+                            for (int k = j+1; k < topology.nNodes) {
+
+                            }
+                        }
+                        uMaxExpr[edgePair.getKey()].addTerm(
+                                root.trafficMatrix[path[0]][endNode]*edgePair.getLoad(), SRPaths[i]);
+                    }
+                }
+            }
+            for (int i =0; i < topology.nEdges; i++) {
+                for (int j = 0; j < numberOfMatrices; j++) {
+                    uMaxExpr[i][j].addTerm(-topology.edgeCapacity[i], uMax);
+                    model.addConstr(uMaxExpr[i][j], GRB.LESS_EQUAL, 0.0, "uMax-edge-" + i);
+                }
+            }
             // model.write("out/model.lp");
 
             /* Optimize model */
