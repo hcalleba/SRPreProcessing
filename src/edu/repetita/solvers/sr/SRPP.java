@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
-import edu.repetita.utils.binomial;
+import edu.repetita.utils.Binomial;
 import gurobi.*;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
@@ -35,7 +35,7 @@ public class SRPP extends SRSolver {
     double uMax = 0.0;
 
     int gammaParameter = 2; // TODO parametrize
-    double percentageDeviation = 0.5; // TODO parametrize
+    double percentageDeviation = 1; // TODO parametrize
 
     public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
         super();
@@ -526,7 +526,7 @@ public class SRPP extends SRSolver {
                 }
             }
             /* CONSTRAINT : max utilisation */
-            int numberOfMatrices = (int) binomial.computeBinomial(topology.nNodes*topology.nNodes, gammaParameter)
+            int numberOfMatrices = (int) Binomial.computeBinomial(topology.nNodes*topology.nNodes, gammaParameter);
             GRBLinExpr[][] uMaxExpr = new GRBLinExpr[topology.nEdges][numberOfMatrices];
             for (int i = 0; i < topology.nEdges; i++) {
                 for(int j = 0; j < numberOfMatrices; j++) {
@@ -538,22 +538,42 @@ public class SRPP extends SRSolver {
                 EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
                 for (EdgePair edgePair : edgeLoads) {
                     if (edgePair.getLoad() != 0) {
+                        int startNode = path[0];
                         int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
                         int matrixNumber = 0;
-                        for (int j = 0; j < topology.nNodes) {
-                            for (int k = j+1; k < topology.nNodes) {
-
+                        Binomial b = new Binomial(topology.nNodes*topology.nNodes, gammaParameter);
+                        while (b.hasNext()) {
+                            int[] lst = b.next();
+                            int[][] lst_ = new int[gammaParameter][2];
+                            // convert number between 0 and nNodes² to a start- and end-node
+                            for (int k = 0; k < gammaParameter; k++) {
+                                lst_[k][0] = lst[k]/topology.nNodes;
+                                lst_[k][1] = lst[k]%topology.nNodes;
                             }
+                            boolean contains = false;
+                            for (int k=0; k < lst_.length; k++) {
+                                if (lst_[k][0] == startNode && lst_[k][1] == endNode)
+                                {
+                                    contains = true;
+                                    break;
+                                }
+                            }
+                            if (contains) {
+                                uMaxExpr[edgePair.getKey()][matrixNumber].addTerm(
+                                        root.trafficMatrix[startNode][endNode] * edgePair.getLoad() * (1+percentageDeviation), SRPaths[i]);
+                            } else {
+                                uMaxExpr[edgePair.getKey()][matrixNumber].addTerm(
+                                        root.trafficMatrix[startNode][endNode] * edgePair.getLoad(), SRPaths[i]);
+                            }
+                            matrixNumber++;
                         }
-                        uMaxExpr[edgePair.getKey()].addTerm(
-                                root.trafficMatrix[path[0]][endNode]*edgePair.getLoad(), SRPaths[i]);
                     }
                 }
             }
             for (int i =0; i < topology.nEdges; i++) {
                 for (int j = 0; j < numberOfMatrices; j++) {
                     uMaxExpr[i][j].addTerm(-topology.edgeCapacity[i], uMax);
-                    model.addConstr(uMaxExpr[i][j], GRB.LESS_EQUAL, 0.0, "uMax-edge-" + i);
+                    model.addConstr(uMaxExpr[i][j], GRB.LESS_EQUAL, 0.0, "uMax-edge-" + i + "-matrix-" + j);
                 }
             }
             // model.write("out/model.lp");
