@@ -19,6 +19,9 @@ for topology in giveTopoNames(directory):
 
 lst.sort(key=lambda x: (int(x[1]), int(x[2])))
 
-for i in lst[:50]:
-    print(i[0])
+
+print("(", end="")
+for i in lst[:70]:
+    print("\"" + i[0] + "\" ", end="")
+print(")")
 
