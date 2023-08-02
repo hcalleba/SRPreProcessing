@@ -209,13 +209,17 @@ final public class RepetitaParser {
                 String[] SRNodes = line.split (", ");
 
                 /* Only add path if there is demand between nodes */
-                int lastSegment = Integer.parseInt(SRNodes[SRNodes.length-1]);
-                int endNode = (lastSegment < root.nNodes) ? lastSegment : root.edgeDest[lastSegment-root.nNodes];
-                if (root.trafficMatrix[Integer.parseInt(SRNodes[0])][endNode] > 0) {
-                    paths.add(new int[SRNodes.length]);
-                    for (int i = 0; i < SRNodes.length; i++) {
-                        paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+                try {
+                    int lastSegment = Integer.parseInt(SRNodes[SRNodes.length - 1]);
+                    int endNode = (lastSegment < root.nNodes) ? lastSegment : root.edgeDest[lastSegment-root.nNodes];
+                    if (root.trafficMatrix[Integer.parseInt(SRNodes[0])][endNode] > 0) {
+                        paths.add(new int[SRNodes.length]);
+                        for (int i = 0; i < SRNodes.length; i++) {
+                            paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+                        }
                     }
+                } catch (NumberFormatException e) {
+                    continue;
                 }
             }
             return paths;
