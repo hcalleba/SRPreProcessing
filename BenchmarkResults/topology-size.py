@@ -21,7 +21,6 @@ lst.sort(key=lambda x: (int(x[1]), int(x[2])))
 
 
 print("(", end="")
-for i in lst[:70]:
+for i in lst[:-30]:
     print("\"" + i[0] + "\" ", end="")
 print(")")
-
