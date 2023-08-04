@@ -361,7 +361,7 @@ public class SRPP extends SRSolver {
             GRBLinExpr objExpr = new GRBLinExpr();
             objExpr.addTerm(1.0, uMax);
             model.setObjective(objExpr, GRB.MINIMIZE);
-            //model.set(GRB.DoubleParam.OptimalityTol, 0.000000001);
+            model.set(GRB.DoubleParam.OptimalityTol, 0.000000001);
 
             /* Adding constraints */
             /* CONSTRAINT : Sum of SR-paths for an OD pair is equal to one */

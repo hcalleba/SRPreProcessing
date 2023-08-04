@@ -19,8 +19,12 @@ for topology in giveTopoNames(directory):
 
 lst.sort(key=lambda x: (int(x[1]), int(x[2])))
 
+l1, l2, l3 = zip(*lst)
+print(l1[0:134])
 
 print("(", end="")
 for i in lst[:-30]:
-    print("\"" + i[0] + "\" ", end="")
+    #print("\"" + i[0] + "\" ", end="")
+    pass
+    
 print(")")
