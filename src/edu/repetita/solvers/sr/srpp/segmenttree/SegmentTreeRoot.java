@@ -313,7 +313,7 @@ public class SegmentTreeRoot {
     }
 
     /**
-     * Returns an object EdgeLoadFullArray containing the loads on each edge for an SR-path composed of the nodes in the
+     * Returns an object EdgeLoadLinkedList containing the loads on each edge for an SR-path composed of the nodes in the
      * array path
      * @param path array containing the node segments of which the SR-path is composed
      * @return the edge loads of the requested path.
