@@ -35,7 +35,7 @@ public class LinearProblem {
     GRBVar[] delta;
     GRBVar[][][] lambda;
 
-    ArrayList<int[]> worstTMs;
+    ArrayList<int[][]> worstTMs;
 
     public LinearProblem(ROBUST robust, ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
         this.robustType = robust;
@@ -46,33 +46,30 @@ public class LinearProblem {
     }
 
     public double execute (long endTime) {
-        boolean continuous;
-        VARS vars;
         switch (robustType) {
             case NONE:
-            case ITERATIVE_INTEGER:
-                continuous = false;
-                vars = VARS.DEFAULT;
+                createModel(endTime, false, VARS.DEFAULT, initialTM);
                 break;
             case DUAL:
-                continuous = false;
-                vars = VARS.ROBUSTDUAL;
+                createModel(endTime, false, VARS.ROBUSTDUAL, initialTM);
+                break;
+            case ITERATIVE_INTEGER:
+                createModel(endTime, false, VARS.DEFAULT, initFirstRobustTM());
                 break;
             case ITERATIVE_CONTINUOUS:
             case ITERATIVE_MIXED:
-                continuous = true;
-                vars = VARS.DEFAULT;
+                createModel(endTime, true, VARS.DEFAULT, initFirstRobustTM());
                 break;
             default:
                 throw new RuntimeException("Robust formulation not implemented");
         }
-        createModel(endTime, continuous, vars); //TODO add parameter for initial matrices ?
 
         switch(robustType) {
             case NONE:
             case DUAL:
                 return solve();
             case ITERATIVE_INTEGER:
+                // faire un solve ajouter pire matrice et refaire un solve etc.
             case ITERATIVE_CONTINUOUS:
             case ITERATIVE_MIXED:
                 // TODO
@@ -82,7 +79,7 @@ public class LinearProblem {
         }
     }
 
-    private void createModel(long endTime, boolean continuous, VARS vars) {
+    private void createModel(long endTime, boolean continuous, VARS vars, double[][] initialTM) {
         try {
             /* Create empty environment, set options, and start */
             env = new GRBEnv(true);
@@ -129,20 +126,9 @@ public class LinearProblem {
 
             /* Adding constraints */
             createUniquePathExpr();
-            switch (robustType) {
-                case NONE:
-                    createUMaxExprTM(initialTM);
-                    break;
-                case DUAL:
-                    createRobustUMaxExprTM(initialTM);
-                    createRobustConstraint();
-                    break;
-                case ITERATIVE_INTEGER:
-                    createUMaxExprTM(root.trafficMatrix); // TODO change matrix
-                    break;
-                default:
-                    throw new RuntimeException("Robust formulation not implemented");
-
+            createUMaxExprTM(initialTM);
+            if (vars == VARS.ROBUSTDUAL) {
+                createRobustConstraint();
             }
 
             if (debug == DEBUG.MODEL) {
@@ -350,20 +336,20 @@ public class LinearProblem {
      * @param TM the traffic matrix
      * @return an array of robustGamma indices
      */
-    private int[][] getInitialWorstTM(double[][] TM) {
-        double[][] TMcopy = new double[TM.length][];
-        for (int i = 0; i < TM.length; i++) {
-            TMcopy[i] = TM[i].clone();
+    private int[][] getInitialWorstTM() {
+        double[][] TMcopy = new double[initialTM.length][];
+        for (int i = 0; i < initialTM.length; i++) {
+            TMcopy[i] = initialTM[i].clone();
         }
-        int[][] ret = new int[robustGamma][2];
+        int[][] ret = new int[2][robustGamma];
         for (int k=0; k < robustGamma; k++) {
             double max = 0.0;
             for (int i = 0; i < TMcopy.length; i++) {
                 for (int j = 0; j < TMcopy.length; j++) {
                     if (TMcopy[i][j] > max) {
                         max = TMcopy[i][j];
-                        ret[k][0] = i;
-                        ret[k][1] = j;
+                        ret[0][k] = i;
+                        ret[1][k] = j;
                     }
                 }
             }
@@ -382,14 +368,27 @@ public class LinearProblem {
      * @param worseTM an array of the robustGamma indices of the demands which lead to the worst matrix
      * @return true if the TM was added, false if it was already in the list
      */
-    private boolean addNewWorstTM(int[] worseTM) {
+    private boolean addNewWorstTM(int[][] worseTM) {
         Arrays.sort(worseTM);
         for (int i = 0; i < worstTMs.size(); i++) {
-            if (Arrays.equals(worseTM, worstTMs.get(i))) {
+            if (Arrays.equals(worseTM[0], worstTMs.get(i)[0]) && Arrays.equals(worseTM[1], worstTMs.get(i)[1])) {
                 return false;
             }
         }
         worstTMs.add(worseTM);
         return true;
+    }
+
+    private double[][] initFirstRobustTM() {
+        int[][] worstTM = getInitialWorstTM();
+        addNewWorstTM(worstTM);
+        double[][] TMcopy = new double[initialTM.length][];
+        for (int i = 0; i < initialTM.length; i++) {
+            TMcopy[i] = initialTM[i].clone();
+        }
+        for (int i = 0; i < robustGamma; i++) {
+            TMcopy[worstTM[0][i]][worstTM[1][i]] = TMcopy[worstTM[0][i]][worstTM[1][i]] + robustDeviation * TMcopy[worstTM[0][i]][worstTM[1][i]];
+        }
+        return TMcopy;
     }
 }
