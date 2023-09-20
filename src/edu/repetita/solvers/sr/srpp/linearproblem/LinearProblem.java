@@ -1,4 +1,4 @@
-package edu.repetita.solvers.sr.srpp;
+package edu.repetita.solvers.sr.srpp.linearproblem;
 
 import edu.repetita.core.Topology;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
@@ -8,6 +8,7 @@ import gurobi.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 
 enum VARS {
     DEFAULT,
@@ -35,7 +36,7 @@ public class LinearProblem {
     GRBVar[] delta;
     GRBVar[][][] lambda;
 
-    ArrayList<int[][]> worstTMs;
+    ArrayList<BadTM> worstTMs;
 
     public LinearProblem(ROBUST robust, ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
         this.robustType = robust;
@@ -69,6 +70,7 @@ public class LinearProblem {
             case DUAL:
                 return solve();
             case ITERATIVE_INTEGER:
+                return iterativeIntegerLoop();
                 // faire un solve ajouter pire matrice et refaire un solve etc.
             case ITERATIVE_CONTINUOUS:
             case ITERATIVE_MIXED:
@@ -116,19 +118,19 @@ public class LinearProblem {
             }
 
             /* set objective */
-            switch (obj) {
-                case UMAX:
-                    setUMaxObjective();
-                    break;
-                default:
-                    throw new RuntimeException("Objective not implemented");
+            if (Objects.requireNonNull(obj) == OBJECTIVE.UMAX) {
+                setUMaxObjective();
+            } else {
+                throw new RuntimeException("Objective not implemented");
             }
 
             /* Adding constraints */
             createUniquePathExpr();
-            createUMaxExprTM(initialTM);
             if (vars == VARS.ROBUSTDUAL) {
+                createRobustUMaxExprTM(initialTM);
                 createRobustConstraint();
+            } else {
+                createUMaxExprTM(initialTM);
             }
 
             if (debug == DEBUG.MODEL) {
@@ -251,6 +253,17 @@ public class LinearProblem {
         return uMaxExpr;
     }
 
+    private GRBLinExpr[] getGrbLinExprs(BadTM worseDemands) {
+        double[][] TMcopy = new double[initialTM.length][];
+        for (int i = 0; i < initialTM.length; i++) {
+            TMcopy[i] = initialTM[i].clone();
+        }
+        for (int i = 0; i < robustGamma; i++) {
+            TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)] = TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)] + robustDeviation * TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)];
+        }
+        return getGrbLinExprs(TMcopy);
+    }
+
     private void createRobustConstraint() throws GRBException {
         GRBLinExpr[][][] robustExpr = new GRBLinExpr[topology.nEdges][topology.nNodes][topology.nNodes];
         for (int a = 0; a < topology.nEdges; a++) {
@@ -316,10 +329,24 @@ public class LinearProblem {
                     builder.append(Arrays.toString(paths.get(i))).append("\n");
                 }
             }
-            return builder.toString(); // RepetitaWriter.writeToPathFile(builder.toString());
+            return builder.toString();
         } catch (GRBException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private ArrayList<int[]> getPaths() {
+        ArrayList<int[]> ret = new ArrayList<>();
+        try {
+            for (int i=0; i < paths.size(); i++) {
+                if (SRPaths[i].get(GRB.DoubleAttr.X) != 0.0) {
+                    ret.add(paths.get(i));
+                }
+            }
+        } catch (GRBException e) {
+            throw new RuntimeException(e);
+        }
+        return ret;
     }
 
     public int getStartNode(int[] path) {
@@ -333,32 +360,31 @@ public class LinearProblem {
      * Finds the indices of the robustGamma biggest values in the traffic matrix
      * Since I assume robustGamma is relatively small, I simply iterate a max search robustGamma times
      * instead of sorting the matrix
-     * @param TM the traffic matrix
      * @return an array of robustGamma indices
      */
-    private int[][] getInitialWorstTM() {
+    private BadTM getInitialWorstTM() {
         double[][] TMcopy = new double[initialTM.length][];
         for (int i = 0; i < initialTM.length; i++) {
             TMcopy[i] = initialTM[i].clone();
         }
-        int[][] ret = new int[2][robustGamma];
+        BadTM ret = new BadTM(robustGamma);
+        // int[][] ret = new int[2][robustGamma]; // TODO change using tuple and BadTM class
         for (int k=0; k < robustGamma; k++) {
             double max = 0.0;
             for (int i = 0; i < TMcopy.length; i++) {
                 for (int j = 0; j < TMcopy.length; j++) {
                     if (TMcopy[i][j] > max) {
                         max = TMcopy[i][j];
-                        ret[0][k] = i;
-                        ret[1][k] = j;
+                        ret.add(i, j, k);
                     }
                 }
             }
-            TMcopy[ret[k][0]][ret[k][1]] = 0.0;
+            TMcopy[ret.getStart(k)][ret.getEnd(k)] = 0.0;
         }
         return ret;
     }
 
-    private int[] getWorstTM(ArrayList<int[]> paths) {
+    private BadTM getWorstTM(ArrayList<int[]> paths) {
         // see GitHub srpp
         return null;
     }
@@ -368,10 +394,10 @@ public class LinearProblem {
      * @param worseTM an array of the robustGamma indices of the demands which lead to the worst matrix
      * @return true if the TM was added, false if it was already in the list
      */
-    private boolean addNewWorstTM(int[][] worseTM) {
-        Arrays.sort(worseTM);
+    private boolean addNewWorstTM(BadTM worseTM) {
+        worseTM.sort();
         for (int i = 0; i < worstTMs.size(); i++) {
-            if (Arrays.equals(worseTM[0], worstTMs.get(i)[0]) && Arrays.equals(worseTM[1], worstTMs.get(i)[1])) {
+            if (worseTM.equals(worstTMs.get(i))) {
                 return false;
             }
         }
@@ -380,15 +406,28 @@ public class LinearProblem {
     }
 
     private double[][] initFirstRobustTM() {
-        int[][] worstTM = getInitialWorstTM();
+        BadTM worstTM = getInitialWorstTM();
         addNewWorstTM(worstTM);
         double[][] TMcopy = new double[initialTM.length][];
         for (int i = 0; i < initialTM.length; i++) {
             TMcopy[i] = initialTM[i].clone();
         }
         for (int i = 0; i < robustGamma; i++) {
-            TMcopy[worstTM[0][i]][worstTM[1][i]] = TMcopy[worstTM[0][i]][worstTM[1][i]] + robustDeviation * TMcopy[worstTM[0][i]][worstTM[1][i]];
+            TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)] = TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)] + robustDeviation * TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)];
         }
         return TMcopy;
+    }
+
+    private double iterativeIntegerLoop() {
+        double res = solve();
+        while(addNewWorstTM(getWorstTM(getPaths()))) {
+            try {
+                addUMaxExpr(getGrbLinExprs(worstTMs.get(worstTMs.size()-1)));
+            } catch (GRBException e) {
+                throw new RuntimeException(e);
+            }
+            res = solve();
+        }
+        return res;
     }
 }

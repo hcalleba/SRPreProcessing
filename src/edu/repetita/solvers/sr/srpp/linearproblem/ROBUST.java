@@ -1,4 +1,4 @@
-package edu.repetita.solvers.sr.srpp;
+package edu.repetita.solvers.sr.srpp.linearproblem;
 
 public enum ROBUST {
     NONE,
