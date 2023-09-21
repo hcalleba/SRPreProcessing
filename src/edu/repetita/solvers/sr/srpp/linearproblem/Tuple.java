@@ -26,4 +26,8 @@ public class Tuple implements Comparable<Tuple> {
             return this.end - o.end;
         }
     }
+
+    public boolean equals(Tuple other) {
+        return this.start == other.start && this.end == other.end;
+    }
 }

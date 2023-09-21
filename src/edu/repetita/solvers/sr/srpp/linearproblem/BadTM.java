@@ -32,6 +32,19 @@ public class BadTM {
     }
 
     public boolean equals(BadTM other) {
-        return Arrays.equals(this.tuples, other.tuples);
+        for (int i = 0; i < this.tuples.length; i++) {
+            if (!this.tuples[i].equals(other.tuples[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        for (Tuple t : this.tuples) {
+            sb.append("Demand: " + t.start + " to " + t.end + "\n");
+        }
+        return sb.toString();
     }
 }

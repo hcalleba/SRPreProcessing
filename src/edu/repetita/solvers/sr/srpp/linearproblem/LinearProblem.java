@@ -8,7 +8,10 @@ import gurobi.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
+
+import static java.lang.Math.min;
 
 enum VARS {
     DEFAULT,
@@ -17,7 +20,7 @@ enum VARS {
 
 public class LinearProblem {
     int nbThreads = 8;
-    boolean highPrecision = true; // if true sets the optimalityTol parameter to 10^-8, o/w defaults to 10^-4
+    boolean highPrecision = false; // if true sets the optimalityTol parameter to 10^-8, o/w defaults to 10^-4
     DEBUG debug = DEBUG.MODEL;
     OBJECTIVE obj = OBJECTIVE.UMAX;
     ROBUST robustType;
@@ -44,6 +47,7 @@ public class LinearProblem {
         this.paths = paths;
         this.root = root;
         this.initialTM = root.trafficMatrix;
+        this.worstTMs = new ArrayList<>();
     }
 
     public double execute (long endTime) {
@@ -385,8 +389,46 @@ public class LinearProblem {
     }
 
     private BadTM getWorstTM(ArrayList<int[]> paths) {
-        // see GitHub srpp
-        return null;
+        ArrayList<EdgeLoadInfo>[] loadOnEdge = new ArrayList[topology.nEdges];
+        for (int i = 0; i < topology.nEdges; i++) {
+            loadOnEdge[i] = new ArrayList<>();
+        }
+
+        for (int i = 0; i < paths.size(); i++) {
+            int[] path = paths.get(i);
+            EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
+            for (EdgePair edgePair : edgeLoads) {
+                if (edgePair.getLoad() != 0) {
+                    int startNode = getStartNode(path);
+                    int endNode = getEndNode(path);
+                    EdgeLoadInfo elf = new EdgeLoadInfo(initialTM[startNode][endNode]*edgePair.getLoad(), startNode, endNode);
+                    loadOnEdge[edgePair.getKey()].add(elf);
+                }
+            }
+        }
+        double max = 0.0;
+        int maxIndex = 0;
+        for (int i = 0; i < topology.nEdges; i++) {
+            double sum = 0;
+            for (EdgeLoadInfo elf : loadOnEdge[i]) {
+                sum += elf.load;
+            }
+            loadOnEdge[i].sort(Collections.reverseOrder());
+            for (int j = 0; j < loadOnEdge[i].size() && j < robustGamma; j++) {
+                sum += loadOnEdge[i].get(j).load;
+            }
+            double load = sum / topology.edgeCapacity[i];
+            if (load > max) {
+                max = load;
+                maxIndex = i;
+            }
+        }
+        BadTM ret = new BadTM(min(robustGamma, loadOnEdge[maxIndex].size()));
+        for (int i = 0; i < min(robustGamma, loadOnEdge[maxIndex].size()); i++) {
+            ret.add(loadOnEdge[maxIndex].get(i).startNode, loadOnEdge[maxIndex].get(i).endNode, i);
+        }
+        System.out.println("new max : " + max);
+        return ret;
     }
 
     /**
@@ -398,10 +440,12 @@ public class LinearProblem {
         worseTM.sort();
         for (int i = 0; i < worstTMs.size(); i++) {
             if (worseTM.equals(worstTMs.get(i))) {
+                System.out.println("Did not add new worst TM: " + worseTM.toString());
                 return false;
             }
         }
         worstTMs.add(worseTM);
+        System.out.println("Added new worst TM: " + worseTM.toString());
         return true;
     }
 
@@ -420,6 +464,7 @@ public class LinearProblem {
 
     private double iterativeIntegerLoop() {
         double res = solve();
+        System.out.println("Start = " + res);
         while(addNewWorstTM(getWorstTM(getPaths()))) {
             try {
                 addUMaxExpr(getGrbLinExprs(worstTMs.get(worstTMs.size()-1)));
@@ -427,6 +472,7 @@ public class LinearProblem {
                 throw new RuntimeException(e);
             }
             res = solve();
+            System.out.println("Next = " + res);
         }
         return res;
     }
