@@ -39,7 +39,8 @@ public class LinearProblem {
     GRBVar[] delta;
     GRBVar[][][] lambda;
 
-    ArrayList<BadTM> worstTMs;
+    BadTM lastWorstTM;
+    double currSol;
 
     public LinearProblem(ROBUST robust, ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
         this.robustType = robust;
@@ -47,7 +48,6 @@ public class LinearProblem {
         this.paths = paths;
         this.root = root;
         this.initialTM = root.trafficMatrix;
-        this.worstTMs = new ArrayList<>();
     }
 
     public double execute (long endTime) {
@@ -423,11 +423,13 @@ public class LinearProblem {
                 maxIndex = i;
             }
         }
+        if (max <= currSol) { // If the newly created worst solution is not worse than the solution from the LP, we can stop
+            return lastWorstTM;
+        }
         BadTM ret = new BadTM(min(robustGamma, loadOnEdge[maxIndex].size()));
         for (int i = 0; i < min(robustGamma, loadOnEdge[maxIndex].size()); i++) {
             ret.add(loadOnEdge[maxIndex].get(i).startNode, loadOnEdge[maxIndex].get(i).endNode, i);
         }
-        System.out.println("new max : " + max);
         return ret;
     }
 
@@ -438,14 +440,11 @@ public class LinearProblem {
      */
     private boolean addNewWorstTM(BadTM worseTM) {
         worseTM.sort();
-        for (int i = 0; i < worstTMs.size(); i++) {
-            if (worseTM.equals(worstTMs.get(i))) {
-                System.out.println("Did not add new worst TM: " + worseTM.toString());
-                return false;
-            }
+        // Only test if last TM added is the same as the newly created worst one
+        if (lastWorstTM != null && lastWorstTM.equals(worseTM)) {
+            return false;
         }
-        worstTMs.add(worseTM);
-        System.out.println("Added new worst TM: " + worseTM.toString());
+        lastWorstTM = worseTM;
         return true;
     }
 
@@ -463,17 +462,15 @@ public class LinearProblem {
     }
 
     private double iterativeIntegerLoop() {
-        double res = solve();
-        System.out.println("Start = " + res);
+        currSol = solve();
         while(addNewWorstTM(getWorstTM(getPaths()))) {
             try {
-                addUMaxExpr(getGrbLinExprs(worstTMs.get(worstTMs.size()-1)));
+                addUMaxExpr(getGrbLinExprs(lastWorstTM));
             } catch (GRBException e) {
                 throw new RuntimeException(e);
             }
-            res = solve();
-            System.out.println("Next = " + res);
+            currSol = solve();
         }
-        return res;
+        return currSol;
     }
 }
