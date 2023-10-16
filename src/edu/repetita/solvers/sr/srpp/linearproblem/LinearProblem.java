@@ -195,7 +195,9 @@ public class LinearProblem {
         for (int i = 0; i < topology.nNodes; i++) {
             for (int j = 0; j < topology.nNodes; j++) {
                 if (i != j) {
-                    model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
+                    if(initialTM[i][j] > 0) {
+                        model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
+                    }
                 }
             }
         }
