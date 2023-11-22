@@ -26,6 +26,7 @@ public class LinearProblem {
     ROBUST robustType;
     int robustGamma = 2; // TODO parametrize, should test that is is lower than nb of demands
     double robustDeviation = 1; // TODO parametrize
+    double PRECISION = 0.000001;
 
     Topology topology;
     ArrayList<int[]> paths;
@@ -425,7 +426,7 @@ public class LinearProblem {
                 maxIndex = i;
             }
         }
-        if (max <= currSol) { // If the newly created worst solution is not worse than the solution from the LP, we can stop
+        if (max - currSol < PRECISION) { // If the newly created worst solution is not worse than the solution from the LP, we can stop
             return lastWorstTM;
         }
         BadTM ret = new BadTM(min(robustGamma, loadOnEdge[maxIndex].size()));
