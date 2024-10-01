@@ -31,9 +31,6 @@ public class SRPP extends SRSolver {
     String scenarioChoice;
     double uMax = 0.0;
 
-    int robustGamma = 2; // TODO parametrize
-    double robustDeviation = 1; // TODO parametrize
-
     public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
         super();
         this.inpathsFilename = inpathsFilename;
