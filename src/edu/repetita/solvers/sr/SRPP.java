@@ -94,7 +94,7 @@ public class SRPP extends SRSolver {
                 preprocessedPathsToFile(paths);
 
             } else {
-                LinearProblem lp = new LinearProblem(ITERATIVE_INTEGER, paths, root, topology);
+                LinearProblem lp = new LinearProblem(DUAL, paths, root, topology);
                 uMax = lp.execute(endTime);
                 RepetitaWriter.writeToPathFile(lp.getSolution());
                 lp.dispose();
