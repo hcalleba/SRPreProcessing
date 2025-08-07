@@ -4,7 +4,7 @@ import edu.repetita.core.Topology;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
 import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
 import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
-import gurobi.*;
+import com.gurobi.gurobi.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;

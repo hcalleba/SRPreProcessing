@@ -291,10 +291,11 @@ class SegmentTreeLeaf {
     }
 
     public boolean heuristicCondition(int newNode) {
-        // TODO parametrize, for now if you don't want to use the heuristic just uncomment the next line
+        // TODO parametrize, for now if you don't want to use the heuristic return false when a non-dominated path
+        //  should be pruned and true if it should be kept
         return true;
-        //int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
-        //return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
+        // int newDist = this.distance + root.getDistance(this.currentNodeNumber, newNode);
+        // return newDist <= heuristicDistanceFormula(root.distancePerPair[this.originNodeNumber][newNode < root.nNodes ? newNode : root.edgeDest[newNode-root.nNodes]]);
     }
 
     private static int heuristicDistanceFormula(int i) {
