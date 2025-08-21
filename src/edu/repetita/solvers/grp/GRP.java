@@ -1,12 +1,11 @@
 package edu.repetita.solvers.grp;
 
+import com.gurobi.gurobi.*;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Solver;
 import edu.repetita.core.Topology;
-import gurobi.*;
-
-import java.lang.management.BufferPoolMXBean;
+import java.util.ArrayList;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
 
@@ -42,7 +41,7 @@ public class GRP extends Solver {
         solveTime = System.currentTimeMillis() - startTime;
     }
 
-    private double solveILP (Topology topology, Demands demands) {
+    private double solveILP (Topology topology, ArrayList<Demands> demands) {
         try {
             // Create empty environment set options and start
             GRBEnv env = new GRBEnv(true);
@@ -61,7 +60,7 @@ public class GRP extends Solver {
             for (int startNode = 0; startNode < topology.nNodes; startNode++) {
                 for (int endNode = 0; endNode < topology.nNodes; endNode++) {
                     for (int edge = 0; edge < topology.nEdges; edge++) {
-                        flowVars[startNode][endNode][edge] = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "FlowVar-"+startNode+"-"+endNode+"-"+edge);
+                        flowVars[startNode][endNode][edge] = model.addVar(0.0, 1.0, 0.0, GRB.CONTINUOUS, "FlowVar-"+startNode+"-"+endNode+"-"+edge);
                     }
                 }
             }
@@ -74,6 +73,7 @@ public class GRP extends Solver {
 
             /* Adding constraints */
             /* CONSTRAINT : Flow conservation */
+            // lhs
             GRBLinExpr[][][] flowConservation = new GRBLinExpr[topology.nNodes][topology.nNodes][topology.nNodes];
             for (int startNode = 0; startNode < topology.nNodes; startNode++) {
                 for (int endNode = 0; endNode < topology.nNodes; endNode++) {
@@ -88,28 +88,56 @@ public class GRP extends Solver {
                     }
                 }
             }
+            // rhs
             for (int startNode = 0; startNode < topology.nNodes; startNode++) {
                 for (int endNode = 0; endNode < topology.nNodes; endNode++) {
                     if (startNode != endNode) {
-                        double amount = 0;
-                        for (int demand = 0; demand < demands.nDemands; demand++) {
-                            if (demands.source[demand] == startNode && demands.dest[demand] == endNode) {
-                                amount += demands.amount[demand];
-                            }
-                        }
                         for (int midNode = 0; midNode < topology.nNodes; midNode++) {
                             if (startNode == midNode) {
-                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, amount, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
-                            } else if (endNode == midNode) {
-                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, -amount, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, 1.0, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+                            }
+                            else if (endNode == midNode) {
+                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, -1.0, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
                             } else {
-                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, 0, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, 0.0, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
                             }
                         }
                     }
                 }
             }
+//            for (int startNode = 0; startNode < topology.nNodes; startNode++) {
+//                for (int endNode = 0; endNode < topology.nNodes; endNode++) {
+//                    if (startNode != endNode) {
+//                        double amount = 0;
+//                        for (int demand = 0; demand < demands.nDemands; demand++) {
+//                            if (demands.source[demand] == startNode && demands.dest[demand] == endNode) {
+//                                amount += demands.amount[demand];
+//                            }
+//                        }
+//                        for (int midNode = 0; midNode < topology.nNodes; midNode++) {
+//                            if (startNode == midNode) {
+//                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, amount, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+//                            } else if (endNode == midNode) {
+//                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, -amount, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+//                            } else {
+//                                model.addConstr(flowConservation[startNode][endNode][midNode], GRB.EQUAL, 0, "FlowConstr-"+startNode+"-"+endNode+"-"+midNode);
+//                            }
+//                        }
+//                    }
+//                }
+//            }
             /* CONSTRAINT : max utilisation */
+            for (Demands d : demands) {
+                GRBLinExpr[] uMaxExpr = new GRBLinExpr[topology.nEdges];
+                for (int edge = 0; edge < topology.nEdges; edge++) {
+                    uMaxExpr[edge] = new GRBLinExpr();
+                }
+                for (int demandNb = 0; demandNb < d.nDemands; demandNb++) {
+                    for (int edge = 0; edge < topology.nEdges; edge++) {
+                        // for each edge add the demand times the proportional flow variable
+                    }
+                }
+            }
             GRBLinExpr[] uMaxExpr = new GRBLinExpr[topology.nEdges];
             for (int edge = 0; edge < topology.nEdges; edge++) {
                 uMaxExpr[edge] = new GRBLinExpr();
@@ -128,7 +156,7 @@ public class GRP extends Solver {
                 model.addConstr(uMaxExpr[edge], GRB.LESS_EQUAL, 0.0, "uMax-edge-"+edge);
             }
 
-            model.write("out/model.lp");
+            // model.write("out/model.lp");
 
             /* Optimize model */
             model.optimize();
