@@ -1,0 +1,14 @@
+NODES 3
+label x y
+0_A 100 100
+1_B 200 200
+2_C 150 300
+
+EDGES 6
+label src dest weight bw delay
+edge_0 0 1 1 1000 1
+edge_1 1 0 1 1000 1
+edge_2 0 2 1 2000 1
+edge_3 2 0 1 2000 1
+edge_4 1 2 1 1500 1
+edge_5 2 1 1 1500 1

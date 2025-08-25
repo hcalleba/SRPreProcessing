@@ -6,7 +6,6 @@ import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.grp.GRP;
-import edu.repetita.solvers.sr.SRPP;
 
 import java.util.*;
 
@@ -103,7 +102,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         String graphFilename = null;
         ArrayList<String> demandsFilename = new ArrayList<>();
-        double timeLimit = 0.0;
+        double timeLimit = 100000.0;
         int verboseLevel = 0;
         boolean help = false;
 
