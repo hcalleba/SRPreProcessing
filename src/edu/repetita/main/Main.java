@@ -102,7 +102,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         String graphFilename = null;
         ArrayList<String> demandsFilename = new ArrayList<>();
-        double timeLimit = 100000.0;
+        double timeLimit = 1000000.0;
         int verboseLevel = 0;
         boolean help = false;
 
@@ -149,8 +149,6 @@ public class Main {
             }
             i++;
         }
-
-        /* Do not  do SRPP anymore, simply for testing against general routing */
 
         /* check that the strictly necessary information has been provided in input */
         if (args.length < 1 || help) printHelp("");
