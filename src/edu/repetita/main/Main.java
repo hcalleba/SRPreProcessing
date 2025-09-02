@@ -5,7 +5,6 @@ import edu.repetita.core.Solver;
 import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
-import edu.repetita.solvers.grp.GRP;
 import edu.repetita.solvers.sr.SRPP;
 
 import java.util.*;
@@ -102,10 +101,14 @@ public class Main {
     /* Main method */
     public static void main(String[] args) throws Exception {
         String graphFilename = null;
-        ArrayList<String> demandsFilename = new ArrayList<>();
+        String demandsFilename = null;
+        String inpathsFilename = null;
+        String scenarioChoice = "SRPP";
         double timeLimit = 0.0;
+        boolean outpaths = false;
         int verboseLevel = 0;
         boolean help = false;
+        int maxSegments = 2;
 
         // parse command line arguments
         int i = 0;
@@ -119,21 +122,29 @@ public class Main {
                     print_doc();
                     return;
 
+                case "-scenario":
+                    scenarioChoice = args[++i];
+                    break;
+
                 case "-graph":
                     graphFilename = args[++i];
                     break;
 
                 case "-demands":
-                    i++;
-                    while (i < args.length && !args[i].startsWith("-")) {
-                        demandsFilename.add(args[i]);
-                        i++;
-                    }
-                    i--; // to counter the increment in the while condition
+                    demandsFilename = args[++i];
                     break;
 
                 case "-t":
                     timeLimit = Double.parseDouble(args[++i]);
+                    break;
+
+                case "-inpaths":
+                    inpathsFilename = args[++i];
+                    break;
+
+                case "-outpaths":
+                    outpaths = true;
+                    RepetitaWriter.setOutpathsFilename(args[++i]);
                     break;
 
                 case "-out":
@@ -145,25 +156,40 @@ public class Main {
                     RepetitaWriter.setVerbose(verboseLevel);
                     break;
 
+                case "-maxSR":
+                    maxSegments = Integer.parseInt(args[++i]);
+                    if (maxSegments < 2) {
+                        printHelp("Number of segments should be at least two");
+                    }
+                    break;
+
                 default:
                     printHelp("Unknown option " + args[i]);
             }
             i++;
         }
 
-        /* Do not  do SRPP anymore, simply for testing against general routing */
-
         /* check that the strictly necessary information has been provided in input */
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename.isEmpty()) printHelp("Needs an input demands file (or preprocess scenario)");
+        if (demandsFilename == null && !scenarioChoice.equals("preprocess")) printHelp("Needs an input demands file (or preprocess scenario)");
+        if (!outpaths) printHelp("Need an output file name (-outpaths)");
+        if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile") && !scenarioChoice.equals("preprocess")) {
+            printHelp("Invalid scenario choice : "+scenarioChoice);
+        }
+        if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");
+
 
         /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
-        setting.setDemandsFilename(demandsFilename);
+        if (!scenarioChoice.equals("preprocess")) {
+            setting.setDemandsFilename(demandsFilename);
+        }
+        setting.setMaxSegments(maxSegments);
 
-        Solver solver = new GRP();
+        /* Solve the problem for the topology */
+        Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
         solver.solve(setting, (long) timeLimit * 1000);
     }
 }

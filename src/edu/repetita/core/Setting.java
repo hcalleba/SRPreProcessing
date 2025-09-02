@@ -1,21 +1,20 @@
 package edu.repetita.core;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.SRPaths;
 
 public class Setting {
     private String topologyFilename;
-    private Topology topology;
-    private ArrayList<String> demandsFilename;
-    private ArrayList<Demands> demands;
+    private Topology topology = null;
+    private String demandsFilename;
+    private Demands demands = null;
     private RoutingConfiguration config;
+    private int maxSegments;
 
     public Setting(){
         this.config = new RoutingConfiguration();
-        this.demands = new ArrayList<>();
     }
 
     public void setTopologyFilename(String topologyFilename) {
@@ -27,12 +26,10 @@ public class Setting {
         }
     }
 
-    public void setDemandsFilename(ArrayList<String> demandsFilename) {
+    public void setDemandsFilename(String demandsFilename) {
         this.demandsFilename = demandsFilename;
         try {
-            for (String filename : this.demandsFilename) {
-                this.demands.add(RepetitaParser.parseDemands(filename));
-            }
+            this.demands = RepetitaParser.parseDemands(this.demandsFilename);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -50,13 +47,13 @@ public class Setting {
         this.topology = topology;
     }
 
-    public ArrayList<String> getDemandsFilename() {
+    public String getDemandsFilename() {
         return this.demandsFilename;
     }
 
-    public ArrayList<Demands> getDemands() { return this.demands; }
+    public Demands getDemands() { return this.demands; }
 
-    public void setDemands(ArrayList<Demands> newDemands) {
+    public void setDemands(Demands newDemands) {
         this.demands = newDemands;
     }
 
@@ -68,11 +65,28 @@ public class Setting {
         this.config = newConfig;
     }
 
+    public void setSRPaths(SRPaths paths) {
+        this.config.setSRPaths(paths);
+    }
+
+    public SRPaths getSRPaths() {
+        return this.config.getSRPaths();
+    }
+
+    public void setMaxSegments(int maxSegments) {
+        this.maxSegments = maxSegments;
+    }
+
+    public int getMaxSegments() {
+        return this.maxSegments;
+    }
+
     public Setting clone(){
         Setting copy = new Setting();
         copy.setTopology(this.topology.clone());
-        copy.setDemands(new ArrayList<>(this.demands));
+        copy.setDemands(this.demands);
         copy.setRoutingConfiguration(this.getRoutingConfiguration().clone());
+        copy.setMaxSegments(this.maxSegments);
         return copy;
     }
 }
