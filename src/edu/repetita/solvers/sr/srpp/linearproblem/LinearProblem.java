@@ -1,10 +1,10 @@
 package edu.repetita.solvers.sr.srpp.linearproblem;
 
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
 import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
-import com.gurobi.gurobi.*;
+import gurobi.GRBEnv;
+import gurobi.GRBModel;
+import gurobi.GRBVar;
 
 import java.util.ArrayList;
 import java.util.Arrays;

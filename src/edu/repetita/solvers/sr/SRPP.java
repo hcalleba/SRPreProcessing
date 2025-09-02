@@ -26,16 +26,10 @@ public class SRPP extends SRSolver {
     private static long maxExecTime = 86400000;  // In ms (= 24 hours)
     private long preprocessingTime;
     private long ILPSolveTime;
-    boolean writeOutPaths;
-    String inpathsFilename;
-    String scenarioChoice;
     double uMax = 0.0;
 
-    public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
+    public SRPP(String scenarioChoice) {
         super();
-        this.inpathsFilename = inpathsFilename;
-        this.writeOutPaths = writeOutPaths;
-        this.scenarioChoice = scenarioChoice;
     }
 
     @Override
