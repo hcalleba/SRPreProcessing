@@ -5,7 +5,7 @@ import edu.repetita.io.IOConstants;
 /**
  * Basic interface that any solvers must implement.
  * This interface can be extended to enable specific experiments and analyses on given families of algorithms
- * (e.g., see SRSolver and scenarios for algorithms based on Segment Routing)
+ * (e.g., see HeurSR and scenarios for algorithms based on Segment Routing)
  */
 public abstract class Solver {
     protected int verbose = 1;

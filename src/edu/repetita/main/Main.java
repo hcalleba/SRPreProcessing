@@ -5,7 +5,7 @@ import edu.repetita.core.Solver;
 import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
-import edu.repetita.solvers.sr.SRPP;
+import edu.repetita.solvers.sr.HeurSR;
 
 import java.util.*;
 
@@ -30,7 +30,7 @@ public class Main {
                 "only prints this help message",
                 "only prints the README.txt file",
                 "the scenario:\n" +
-                        "\t'SRPP' for full preprocessing and solving;\n" +
+                        "\t'HeurSR' for full preprocessing and solving;\n" +
                         "\t'full' for solving with all the possible paths;\n" +
                         "\t'loadFromFile' to load SR-paths from a file and solve the problem with them;\n" +
                         "\t'preprocess' to generate all non-dominated paths and print them to a file without solving the ILP;",
@@ -164,7 +164,7 @@ public class Main {
         setting.setMaxSegments(maxSegments);
 
         /* Solve the problem for the topology */
-        Solver solver = new SRPP();
+        Solver solver = new HeurSR();
         solver.solve(setting, (long) timeLimit * 1000);
     }
 }

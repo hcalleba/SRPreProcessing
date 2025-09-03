@@ -3,7 +3,7 @@ package edu.repetita.io;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
+import edu.repetita.solvers.sr.heursr.segmenttree.SegmentTreeRoot;
 import edu.repetita.utils.datastructures.Conversions;
 
 import java.io.IOException;
