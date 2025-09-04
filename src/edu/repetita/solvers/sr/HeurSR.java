@@ -5,11 +5,6 @@ import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.sr.heursr.HeuristicSolver;
-import edu.repetita.solvers.sr.heursr.segmenttree.SegmentTreeRoot;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
 
@@ -89,53 +84,6 @@ public class HeurSR extends edu.repetita.solvers.HeurSR {
         RepetitaWriter.appendToOutput("Total time elapsed : " + (double)(SearchSolveTime+preprocessingTime)/1000 + " seconds");
 //        RepetitaWriter.appendToOutput("Total number of paths after preprocessing : " + nbPaths);
         RepetitaWriter.appendToOutput("Objective value (uMax) : " + uMax + "\n");
-    }
-
-    /**
-     * Preprocesses the topology to generate all non-dominated paths, all paths or load paths from a file depending
-     * on the scenario
-     * @param nNodes the number of nodes in the topology
-     * @param root the root of the SegmentTree
-     * @param paths an arraylist that will serve as container for all the resulting paths
-     * @return the number of generated paths in case of preprocessing, 0 otherwise (if all demands strictly positive,
-     * this is equal to the size of paths)
-     */
-    private int preprocessTopology(int nNodes, SegmentTreeRoot root, ArrayList<int[]> paths, long endTime) {
-        int nbPaths = 0;
-        root.createODPaths(endTime);
-        if (System.currentTimeMillis() > endTime) {
-            return -1;
-        }
-        for (int originNumber = 0; originNumber < nNodes; originNumber++) {
-            for (int destNumber = 0; destNumber < nNodes; destNumber++) {
-                nbPaths += root.getODPaths(originNumber, destNumber).length;
-                if (originNumber != destNumber) {
-                    Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
-                }
-            }
-        }
-        root.freeLeavesMemory();
-        return nbPaths;
-//            /* Load SR-paths from file if one is given */
-//                try {
-//                    RepetitaParser.parseSRPaths(inpathsFilename, root, paths);
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                    System.exit(1);
-//                }
-    }
-
-    /**
-     * Function that writes the preprocessed paths to the -outpaths file
-     * @param paths the preprocessed SR-paths
-     */
-    private void preprocessedPathsToFile(ArrayList<int[]> paths) {
-        StringBuilder builder = new StringBuilder();
-        for (int[] path : paths) {
-            builder.append(Arrays.toString(path));
-            builder.append("\n");
-        }
-        RepetitaWriter.writeToPathFile(builder.toString());
     }
 
     /**
