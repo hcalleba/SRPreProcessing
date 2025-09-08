@@ -12,21 +12,55 @@ import java.util.Map;
 public class HeuristicSolver {
     Topology topology;
     Demands demands;
-    int maxSegments;
+    int maxSegments; // TODO use this
+    double uMax;
 
     private final EdgeFlowVector[][] shortestPathsCache;
+    private final double[] linkLoad;
+    private final int[][] srPaths; // For now limited to 2-SR
 
     public HeuristicSolver(Topology topology, Demands demands, int maxSegments) {
         this.topology = topology;
         this.demands = demands;
         this.maxSegments = maxSegments;
         this.shortestPathsCache = new EdgeFlowVector[topology.nNodes][topology.nNodes];
+        this.linkLoad = new double[topology.nEdges];
+        this.srPaths = new int[topology.nNodes][topology.nNodes];
     }
 
     public double solve(long endTime) {
-        /* Compute shortest paths */
+        /* Compute the shortest paths */
         computeShortestPaths(topology);
-        return 0;
+        /* Initialize link loads to zero */
+        for (int e = 0; e < topology.nEdges; e++) {
+            linkLoad[e] = 0.0;
+        }
+        /* Initialize SR paths to direct shortest paths for each demand */
+        for (int dem = 0; dem < demands.nDemands; dem++) {
+            int s = demands.source[dem];
+            int t = demands.dest[dem];
+            if (s == t) continue;
+            double d = demands.amount[dem];
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            if (spVec != null) {
+                spVec.axpy(d, linkLoad);
+            }
+            srPaths[s][t] = -1; // -1 means direct path
+        }
+        /* Compute Umax */
+        computeUmax();
+        /* Start local search */
+        return 0.0;
+    }
+
+    private void computeUmax() {
+        uMax = 0.0;
+        for (int e = 0; e < topology.nEdges; e++) {
+            double util = linkLoad[e] / topology.edgeCapacity[e];
+            if (util > uMax) {
+                uMax = util;
+            }
+        }
     }
 
     private void computeShortestPaths(Topology topology) {

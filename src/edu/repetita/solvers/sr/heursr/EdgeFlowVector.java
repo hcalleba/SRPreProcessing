@@ -11,7 +11,7 @@ public class EdgeFlowVector {
 
     /**
      * Computes x = x + a * this
-     * Basically if you have a vector of size |E| (number of edges),
+     * Basically if you have a vector x of size |E| (number of edges),
      * this method adds to x the values of this vector scaled by a.
      * @param a a scalar
      * @param x a vector to be updated
