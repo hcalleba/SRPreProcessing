@@ -4,9 +4,7 @@ import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class HeuristicSolver {
@@ -14,10 +12,17 @@ public class HeuristicSolver {
     Demands demands;
     int maxSegments; // TODO use this
     double uMax;
+    long startTime;
 
     private final EdgeFlowVector[][] shortestPathsCache;
     private final double[] linkLoad;
     private final int[][] srPaths; // For now limited to 2-SR
+
+    /* Local variables for the local search */
+    int startDemand = 0;
+    int startNode = 0;
+    int currentDemand;
+    int currentNode;
 
     public HeuristicSolver(Topology topology, Demands demands, int maxSegments) {
         this.topology = topology;
@@ -26,6 +31,7 @@ public class HeuristicSolver {
         this.shortestPathsCache = new EdgeFlowVector[topology.nNodes][topology.nNodes];
         this.linkLoad = new double[topology.nEdges];
         this.srPaths = new int[topology.nNodes][topology.nNodes];
+        this.startTime = System.currentTimeMillis();
     }
 
     public double solve(long endTime) {
@@ -45,21 +51,112 @@ public class HeuristicSolver {
             if (spVec != null) {
                 spVec.axpy(d, linkLoad);
             }
-            srPaths[s][t] = -1; // -1 means direct path
+            srPaths[s][t] = s; // Direct path
         }
         /* Compute Umax */
-        computeUmax();
+        uMax = computeObjFct();
         /* Start local search */
-        return 0.0;
+        localSearch(endTime);
+        return uMax;
     }
 
-    private void computeUmax() {
-        uMax = 0.0;
+    private void localSearch(long endTime) {
+        int lastDemandImproved = 0;
+        int lastNodeImproved = 0;
+        int currentDemand = 0;
+        int currentNode = 0;
+        do {
+            int s = demands.source[currentDemand];
+            int t = demands.dest[currentDemand];
+            double demand = demands.amount[currentDemand];
+            removeLoad(s,t,demand);
+            do {
+                addLoad(s, currentNode, t, demand);
+                double newUmax = computeObjFct();
+                if (newUmax < uMax) {
+                    System.out.println("Improved Umax: " + uMax + " -> " + newUmax + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
+                    uMax = newUmax;
+                    srPaths[s][t] = currentNode;
+                    lastDemandImproved = currentDemand;
+                    lastNodeImproved = currentNode;
+                } else {
+                    removeLoad(s, currentNode, t, demand);
+                }
+                currentNode++;
+            } while(currentNode < topology.nNodes);
+            // Restore the load for the current demand with its (possibly) new path
+            addLoad(s, srPaths[s][t], t, demand);
+            currentNode = 0;
+            currentDemand = (currentDemand + 1) % demands.nDemands;
+        } while(System.currentTimeMillis() < endTime && (currentDemand != lastDemandImproved || currentNode != lastNodeImproved));
+    }
+
+    private double computeObjFct() {
+        double uMax = 0.0;
         for (int e = 0; e < topology.nEdges; e++) {
             double util = linkLoad[e] / topology.edgeCapacity[e];
             if (util > uMax) {
                 uMax = util;
             }
+        }
+        return uMax;
+    }
+
+    private void removeLoad(int s, int t, double demand) {
+        int intermediate = srPaths[s][t];
+        if (intermediate == s) { // Direct path
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            spVec.axpy(-demand, linkLoad);
+        }
+        else {
+            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+            spVec1.axpy(-demand, linkLoad);
+            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+            spVec2.axpy(-demand, linkLoad);
+        }
+    }
+
+    private void removeLoad(int s, int intermediate, int t, double demand) {
+        if (intermediate == s) { // Direct path
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            spVec.axpy(-demand, linkLoad);
+            return;
+        } else if (intermediate == t) {
+            // Pass
+        } else {
+            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+            spVec1.axpy(-demand, linkLoad);
+            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+            spVec2.axpy(-demand, linkLoad);
+        }
+    }
+
+    private void addLoad(int s, int t, double demand) {
+        int intermediate = srPaths[s][t];
+        if (intermediate == s) { // Direct path
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            spVec.axpy(demand, linkLoad);
+        }
+        else {
+            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+            spVec1.axpy(demand, linkLoad);
+            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+            spVec2.axpy(demand, linkLoad);
+        }
+    }
+
+    private void addLoad(int s, int intermediate, int t, double demand) {
+        if (intermediate == s) { // Direct path
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            spVec.axpy(demand, linkLoad);
+            return;
+        } else if (intermediate == t) {
+            // Pass
+        } else {
+            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+            spVec1.axpy(demand, linkLoad);
+            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+            spVec2.axpy(demand, linkLoad);
         }
     }
 
