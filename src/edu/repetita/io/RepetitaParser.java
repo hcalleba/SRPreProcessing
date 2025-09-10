@@ -3,7 +3,6 @@ package edu.repetita.io;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.sr.heursr.segmenttree.SegmentTreeRoot;
 import edu.repetita.utils.datastructures.Conversions;
 
 import java.io.IOException;
@@ -192,40 +191,6 @@ final public class RepetitaParser {
         }
 
         return solverFeatures;
-    }
-
-    public static ArrayList<int[]> parseSRPaths(String filename, SegmentTreeRoot root, ArrayList<int[]> paths) throws IOException {
-        try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
-            Iterator<String> lines = lineStream.iterator();
-
-            String line;
-            // Demands info: label src dest bw
-            while (lines.hasNext()) {
-                line = lines.next();
-                if (line.isEmpty()) break;
-
-                line = line.replace ("[", "");
-                line = line.replace ("]", "");
-                String[] SRNodes = line.split (", ");
-
-                /* Only add path if there is demand between nodes */
-                try {
-                    int lastSegment = Integer.parseInt(SRNodes[SRNodes.length - 1]);
-                    int endNode = (lastSegment < root.nNodes) ? lastSegment : root.edgeDest[lastSegment-root.nNodes];
-                    if (root.trafficMatrix[Integer.parseInt(SRNodes[0])][endNode] > 0) {
-                        paths.add(new int[SRNodes.length]);
-                        for (int i = 0; i < SRNodes.length; i++) {
-                            paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
-                        }
-                    }
-                } catch (NumberFormatException e) {
-                    continue;
-                }
-            }
-            return paths;
-        } catch (Exception e) { // let it crash
-            throw e;
-        }
     }
 
     public static ArrayList<int[]> parseOptPaths(String filename, ArrayList<int[]> paths, Setting setting) throws IOException {

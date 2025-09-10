@@ -12,17 +12,20 @@ public class HeuristicSolver {
     Demands demands;
     int maxSegments; // TODO use this
     double uMax;
+    double bestObjectiveValue;
     long startTime;
 
     private final EdgeFlowVector[][] shortestPathsCache;
     private final double[] linkLoad;
     private final int[][] srPaths; // For now limited to 2-SR
+    private final int P_NORM = 10;
 
     /* Local variables for the local search */
     int startDemand = 0;
     int startNode = 0;
     int currentDemand;
     int currentNode;
+    double sumPowerP = 0.0;
 
     public HeuristicSolver(Topology topology, Demands demands, int maxSegments) {
         this.topology = topology;
@@ -47,51 +50,65 @@ public class HeuristicSolver {
             int t = demands.dest[dem];
             if (s == t) continue;
             double d = demands.amount[dem];
-            EdgeFlowVector spVec = shortestPathsCache[s][t];
-            if (spVec != null) {
-                spVec.axpy(d, linkLoad);
-            }
             srPaths[s][t] = s; // Direct path
+            try {
+                addLoad(s, srPaths[s][t], t, d);
+            } catch (IntermediateNodeIsEndException e) {
+                System.err.println("Error: Intermediate node cannot be the destination");
+                System.exit(0);
+            }
         }
         /* Compute Umax */
-        uMax = computeObjFct();
+        uMax = computeUmax();
+        bestObjectiveValue = computeObjFct();
         /* Start local search */
-        localSearch(endTime);
-        return uMax;
+        try {
+            localSearch(endTime);
+        } catch (IntermediateNodeIsEndException e) {
+            System.err.println("Error: Intermediate node cannot be the destination");
+            System.exit(0);
+        }
+        return computeUmax();
     }
 
-    private void localSearch(long endTime) {
+    private void localSearch(long endTime) throws IntermediateNodeIsEndException {
         int lastDemandImproved = 0;
         int lastNodeImproved = 0;
         int currentDemand = 0;
         int currentNode = 0;
+        double currentObjectiveValue = bestObjectiveValue;
         do {
             int s = demands.source[currentDemand];
             int t = demands.dest[currentDemand];
             double demand = demands.amount[currentDemand];
-            removeLoad(s,t,demand);
+            removeLoad(s, srPaths[s][t], t, demand);
             do {
-                addLoad(s, currentNode, t, demand);
-                double newUmax = computeObjFct();
-                if (newUmax < uMax) {
-                    System.out.println("Improved Umax: " + uMax + " -> " + newUmax + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
-                    uMax = newUmax;
+                try {
+                    addLoad(s, currentNode, t, demand);
+                } catch (IntermediateNodeIsEndException e) {
+                    currentNode++;
+                    continue;
+                }
+                currentObjectiveValue = computeObjFct();
+                if (currentObjectiveValue < bestObjectiveValue) {
+                    System.out.println("Improved objective value: " + bestObjectiveValue + " -> " + currentObjectiveValue + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
+                    System.out.println("Demand " + currentDemand + " (" + s + "->" + t + "), new intermediate node: " + currentNode);
+                    bestObjectiveValue = currentObjectiveValue;
                     srPaths[s][t] = currentNode;
                     lastDemandImproved = currentDemand;
                     lastNodeImproved = currentNode;
-                } else {
-                    removeLoad(s, currentNode, t, demand);
                 }
+                removeLoad(s, currentNode, t, demand);
                 currentNode++;
             } while(currentNode < topology.nNodes);
             // Restore the load for the current demand with its (possibly) new path
             addLoad(s, srPaths[s][t], t, demand);
             currentNode = 0;
             currentDemand = (currentDemand + 1) % demands.nDemands;
-        } while(System.currentTimeMillis() < endTime && (currentDemand != lastDemandImproved || currentNode != lastNodeImproved));
+        } while(System.currentTimeMillis() < endTime && currentDemand != lastDemandImproved);
     }
 
-    private double computeObjFct() {
+    private double computeUmax() {
         double uMax = 0.0;
         for (int e = 0; e < topology.nEdges; e++) {
             double util = linkLoad[e] / topology.edgeCapacity[e];
@@ -102,61 +119,55 @@ public class HeuristicSolver {
         return uMax;
     }
 
-    private void removeLoad(int s, int t, double demand) {
-        int intermediate = srPaths[s][t];
-        if (intermediate == s) { // Direct path
-            EdgeFlowVector spVec = shortestPathsCache[s][t];
-            spVec.axpy(-demand, linkLoad);
-        }
-        else {
-            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
-            spVec1.axpy(-demand, linkLoad);
-            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
-            spVec2.axpy(-demand, linkLoad);
-        }
+    /**
+     * Computes the objective function value as the p-norm of the link utilizations, with p=64
+     * Be careful that it is based on sumPowerP, which must be updated when linkLoad changes
+     * @return the objective function value
+     */
+    double computeObjFct() {
+        return Math.pow(sumPowerP, 1.0/P_NORM);
     }
 
-    private void removeLoad(int s, int intermediate, int t, double demand) {
+
+    private void removeLoad(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
+        applyPaths(s, intermediate, t, -demand);
+    }
+
+    private void addLoad(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
+        applyPaths(s, intermediate, t, demand);
+    }
+
+    private void applyPaths(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
         if (intermediate == s) { // Direct path
             EdgeFlowVector spVec = shortestPathsCache[s][t];
-            spVec.axpy(-demand, linkLoad);
-            return;
+            for (int i = 0; i < spVec.edgeIds.length; i++) {
+                updateEdge(spVec.edgeIds[i], demand * spVec.frac[i]);
+            }
         } else if (intermediate == t) {
-            // Pass
+            throw new IntermediateNodeIsEndException("");
         } else {
             EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
-            spVec1.axpy(-demand, linkLoad);
             EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
-            spVec2.axpy(-demand, linkLoad);
+            for (int i = 0; i < spVec1.edgeIds.length; i++) {
+                updateEdge(spVec1.edgeIds[i], demand * spVec1.frac[i]);
+            }
+            for (int i = 0; i < spVec2.edgeIds.length; i++) {
+                updateEdge(spVec2.edgeIds[i], demand * spVec2.frac[i]);
+            }
         }
     }
 
-    private void addLoad(int s, int t, double demand) {
-        int intermediate = srPaths[s][t];
-        if (intermediate == s) { // Direct path
-            EdgeFlowVector spVec = shortestPathsCache[s][t];
-            spVec.axpy(demand, linkLoad);
+    private void updateEdge(int edgeId, double deltaLoad) {
+        if (deltaLoad == 0.0) return;
+        double capacity = topology.edgeCapacity[edgeId];
+        double oldUtil = linkLoad[edgeId] / capacity;
+        if (oldUtil != 0.0) {
+            sumPowerP -= Math.pow(oldUtil, P_NORM);
         }
-        else {
-            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
-            spVec1.axpy(demand, linkLoad);
-            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
-            spVec2.axpy(demand, linkLoad);
-        }
-    }
-
-    private void addLoad(int s, int intermediate, int t, double demand) {
-        if (intermediate == s) { // Direct path
-            EdgeFlowVector spVec = shortestPathsCache[s][t];
-            spVec.axpy(demand, linkLoad);
-            return;
-        } else if (intermediate == t) {
-            // Pass
-        } else {
-            EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
-            spVec1.axpy(demand, linkLoad);
-            EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
-            spVec2.axpy(demand, linkLoad);
+        linkLoad[edgeId] += deltaLoad;
+        double newUtil = linkLoad[edgeId] / capacity;
+        if (newUtil != 0.0) {
+            sumPowerP += Math.pow(newUtil, P_NORM);
         }
     }
 
