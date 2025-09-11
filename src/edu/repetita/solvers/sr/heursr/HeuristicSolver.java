@@ -7,24 +7,26 @@ import edu.repetita.paths.ShortestPaths;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A heuristic solver for the SR problem with at most 2 segments (1 intermediate node).
+ * The heuristic is a local search that starts from the direct shortest paths for each demand,
+ * and iteratively tries to improve the objective function by changing the intermediate node
+ * of one demand at a time.
+ */
 public class HeuristicSolver {
     Topology topology;
     Demands demands;
     int maxSegments; // TODO use this
-    double uMax;
-    double bestObjectiveValue;
     long startTime;
 
     private final EdgeFlowVector[][] shortestPathsCache;
     private final double[] linkLoad;
-    private final int[][] srPaths; // For now limited to 2-SR
-    private final int P_NORM = 10;
+    private final int[][] currentSrPaths; // For now limited to 2-SR
+    private final int[][] bestSrPaths; // For now limited to 2-SR
+    private double bestUMax = Double.MAX_VALUE;
+    private final int P_NORM = 32;
 
     /* Local variables for the local search */
-    int startDemand = 0;
-    int startNode = 0;
-    int currentDemand;
-    int currentNode;
     double sumPowerP = 0.0;
 
     public HeuristicSolver(Topology topology, Demands demands, int maxSegments) {
@@ -33,13 +35,26 @@ public class HeuristicSolver {
         this.maxSegments = maxSegments;
         this.shortestPathsCache = new EdgeFlowVector[topology.nNodes][topology.nNodes];
         this.linkLoad = new double[topology.nEdges];
-        this.srPaths = new int[topology.nNodes][topology.nNodes];
+        this.currentSrPaths = new int[topology.nNodes][topology.nNodes];
+        this.bestSrPaths = new int[topology.nNodes][topology.nNodes];
         this.startTime = System.currentTimeMillis();
     }
 
     public double solve(long endTime) {
-        /* Compute the shortest paths */
         computeShortestPaths(topology);
+        initLinkLoads();
+        simulatedAnnealing(endTime);
+
+        try {
+            localSearch(endTime);
+        } catch (IntermediateNodeIsEndException e) {
+            System.err.println("Error: Intermediate node cannot be the destination");
+            System.exit(0);
+        }
+        return bestUMax;
+    }
+
+    private void initLinkLoads() {
         /* Initialize link loads to zero */
         for (int e = 0; e < topology.nEdges; e++) {
             linkLoad[e] = 0.0;
@@ -48,27 +63,41 @@ public class HeuristicSolver {
         for (int dem = 0; dem < demands.nDemands; dem++) {
             int s = demands.source[dem];
             int t = demands.dest[dem];
-            if (s == t) continue;
             double d = demands.amount[dem];
-            srPaths[s][t] = s; // Direct path
+            currentSrPaths[s][t] = s; // Direct path
+            bestSrPaths[s][t] = s;
             try {
-                addLoad(s, srPaths[s][t], t, d);
+                addLoad(s, currentSrPaths[s][t], t, d);
             } catch (IntermediateNodeIsEndException e) {
                 System.err.println("Error: Intermediate node cannot be the destination");
                 System.exit(0);
             }
         }
         /* Compute Umax */
-        uMax = computeUmax();
-        bestObjectiveValue = computeObjFct();
-        /* Start local search */
-        try {
-            localSearch(endTime);
-        } catch (IntermediateNodeIsEndException e) {
-            System.err.println("Error: Intermediate node cannot be the destination");
-            System.exit(0);
+        bestUMax = computeUmax();
+    }
+
+    private void simulatedAnnealing(long endTime) {
+        double temperature = 1000.0;
+        double coolingRate = 0.995;
+        double minTemperature = 1e-3;
+        int iterationsPerTemp = 1000;
+        double currentObjectiveValue = computeObjFct();
+        double bestObjectiveValue = currentObjectiveValue;
+        double lastObjectiveValue = currentObjectiveValue;
+        // Will choose randomly from neighborhood
+        java.util.Random rand = new java.util.Random();
+        while (System.currentTimeMillis() < endTime && temperature > minTemperature) {
+            for (int iter = 0; iter < iterationsPerTemp; iter++) {
+                // Randomly select a demand
+                int dem = rand.nextInt(demands.nDemands);
+                int s = demands.source[dem];
+                int t = demands.dest[dem];
+                double d = demands.amount[dem];
+                // Randomly select a new intermediate node
+                int newIntermediate = rand.nextInt(topology.nNodes);
+            }
         }
-        return computeUmax();
     }
 
     private void localSearch(long endTime) throws IntermediateNodeIsEndException {
@@ -76,25 +105,25 @@ public class HeuristicSolver {
         int lastNodeImproved = 0;
         int currentDemand = 0;
         int currentNode = 0;
-        double currentObjectiveValue = bestObjectiveValue;
+        double lastObjectiveValue = computeObjFct();
+        double currentObjectiveValue = lastObjectiveValue;
         do {
             int s = demands.source[currentDemand];
             int t = demands.dest[currentDemand];
             double demand = demands.amount[currentDemand];
-            removeLoad(s, srPaths[s][t], t, demand);
+            removeLoad(s, currentSrPaths[s][t], t, demand);
             do {
-                try {
-                    addLoad(s, currentNode, t, demand);
-                } catch (IntermediateNodeIsEndException e) {
+                if (currentNode == currentSrPaths[s][t] || currentNode == t) {
                     currentNode++;
                     continue;
                 }
+                addLoad(s, currentNode, t, demand);
                 currentObjectiveValue = computeObjFct();
-                if (currentObjectiveValue < bestObjectiveValue) {
-                    System.out.println("Improved objective value: " + bestObjectiveValue + " -> " + currentObjectiveValue + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
+                if (currentObjectiveValue < lastObjectiveValue) {
+                    System.out.println("Improved objective value: " + lastObjectiveValue + " -> " + currentObjectiveValue + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
                     System.out.println("Demand " + currentDemand + " (" + s + "->" + t + "), new intermediate node: " + currentNode);
-                    bestObjectiveValue = currentObjectiveValue;
-                    srPaths[s][t] = currentNode;
+                    lastObjectiveValue = currentObjectiveValue;
+                    currentSrPaths[s][t] = currentNode;
                     lastDemandImproved = currentDemand;
                     lastNodeImproved = currentNode;
                 }
@@ -102,7 +131,7 @@ public class HeuristicSolver {
                 currentNode++;
             } while(currentNode < topology.nNodes);
             // Restore the load for the current demand with its (possibly) new path
-            addLoad(s, srPaths[s][t], t, demand);
+            addLoad(s, currentSrPaths[s][t], t, demand);
             currentNode = 0;
             currentDemand = (currentDemand + 1) % demands.nDemands;
         } while(System.currentTimeMillis() < endTime && currentDemand != lastDemandImproved);
@@ -120,7 +149,7 @@ public class HeuristicSolver {
     }
 
     /**
-     * Computes the objective function value as the p-norm of the link utilizations, with p=64
+     * Computes the objective function value as the p-norm of the link utilizations,
      * Be careful that it is based on sumPowerP, which must be updated when linkLoad changes
      * @return the objective function value
      */
