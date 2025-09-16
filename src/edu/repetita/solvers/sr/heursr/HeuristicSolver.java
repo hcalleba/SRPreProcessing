@@ -46,7 +46,8 @@ public class HeuristicSolver {
         initLinkLoads();
         try {
             simulatedAnnealing(endTime);
-            //localSearch(endTime);
+            System.out.println("STARTING First Fit LS");
+            localSearch(endTime);
         } catch (IntermediateNodeIsEndException e) {
             System.err.println("Error: Intermediate node cannot be the destination");
             System.exit(0);
@@ -67,7 +68,7 @@ public class HeuristicSolver {
             currentSrPaths[s][t] = s; // Direct path
             bestSrPaths[s][t] = s;
             try {
-                addLoad(s, currentSrPaths[s][t], t, d);
+                addLoad(s, currentSrPaths[s][t], t, d, true);
             } catch (IntermediateNodeIsEndException e) {
                 System.err.println("Error: Intermediate node cannot be the destination");
                 System.exit(0);
@@ -77,14 +78,15 @@ public class HeuristicSolver {
         System.arraycopy(linkLoads, 0, bestLinkLoads, 0, topology.nEdges);
     }
 
+    // TODO COmpute UMax at each improvement ? At each temperature decrease recompute sumPowerP from scratch ?
     private void simulatedAnnealing(long endTime) throws IntermediateNodeIsEndException {
         double initialTemperature = computeInitialTemperature();
         double temperature = initialTemperature;
         double coolingRate = 0.98;
         double minTemperature = initialTemperature * 1e-5;
-        int iterationsPerTemp = Math.max(100, demands.nDemands * topology.nNodes / 128);
+        int iterationsPerTemp = Math.max(100, demands.nDemands * topology.nNodes / 256);
 
-        double currentObjectiveValue = computeObjFct();
+        double currentObjectiveValue = computeObjFctSumPowerP();
         double bestObjectiveValue = currentObjectiveValue;
         java.util.Random rand = new java.util.Random();
 
@@ -103,10 +105,10 @@ public class HeuristicSolver {
                 }
 
                 /* Load the new solution */
-                removeLoad(s, currentSrPaths[s][t], t, d);
-                addLoad(s, newIntermediate, t, d);
+                removeLoad(s, currentSrPaths[s][t], t, d, true);
+                addLoad(s, newIntermediate, t, d, true);
                 /* Compute diff */
-                double newObjectiveValue = computeObjFct();
+                double newObjectiveValue = computeObjFctSumPowerP();
                 double delta = currentObjectiveValue - newObjectiveValue;
                 if (delta > 0 || Math.exp(delta / temperature) > rand.nextDouble()) {
                     /* Accept the new solution */
@@ -117,6 +119,7 @@ public class HeuristicSolver {
                     /* Update the best solution if needed */
                     if (currentObjectiveValue < bestObjectiveValue) {
                         bestObjectiveValue = currentObjectiveValue;
+                        // Likely not needed as it is unlikely we get worse solution with low temp + we do local search after
                         /* Update best paths */
                         for (int i = 0; i < topology.nNodes; i++) {
                             System.arraycopy(currentSrPaths[i], 0, bestSrPaths[i], 0, topology.nNodes);
@@ -126,8 +129,8 @@ public class HeuristicSolver {
                     }
                 } else {
                     /* Revert to the old solution */
-                    removeLoad(s, newIntermediate, t, d);
-                    addLoad(s, currentSrPaths[s][t], t, d);
+                    removeLoad(s, newIntermediate, t, d, true);
+                    addLoad(s, currentSrPaths[s][t], t, d, true);
                 }
             }
             temperature *= coolingRate;
@@ -143,20 +146,20 @@ public class HeuristicSolver {
         int lastDemandImproved = 0;
         int currentDemand = 0;
         int currentNode = 0;
-        double lastObjectiveValue = computeObjFct();
-        double currentObjectiveValue = lastObjectiveValue;
+        double lastObjectiveValue = computeObjFctFromScratch();
+        double currentObjectiveValue;
         do {
             int s = demands.source[currentDemand];
             int t = demands.dest[currentDemand];
             double demand = demands.amount[currentDemand];
-            removeLoad(s, currentSrPaths[s][t], t, demand);
+            removeLoad(s, currentSrPaths[s][t], t, demand, false);
             do {
                 if (currentNode == currentSrPaths[s][t] || currentNode == t) {
                     currentNode++;
                     continue;
                 }
-                addLoad(s, currentNode, t, demand);
-                currentObjectiveValue = computeObjFct();
+                addLoad(s, currentNode, t, demand, false);
+                currentObjectiveValue = computeObjFctFromScratch();
                 if (currentObjectiveValue < lastObjectiveValue) {
                     System.out.println("Improved objective value: " + lastObjectiveValue + " -> " + currentObjectiveValue + "after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
                     System.out.println("Demand " + currentDemand + " (" + s + "->" + t + "), new intermediate node: " + currentNode);
@@ -164,17 +167,17 @@ public class HeuristicSolver {
                     currentSrPaths[s][t] = currentNode;
                     lastDemandImproved = currentDemand;
                 }
-                removeLoad(s, currentNode, t, demand);
+                removeLoad(s, currentNode, t, demand, false);
                 currentNode++;
             } while(currentNode < topology.nNodes);
             // Restore the load for the current demand with its (possibly) new path
-            addLoad(s, currentSrPaths[s][t], t, demand);
+            addLoad(s, currentSrPaths[s][t], t, demand, false);
             currentNode = 0;
             currentDemand = (currentDemand + 1) % demands.nDemands;
         } while(System.currentTimeMillis() < endTime && currentDemand != lastDemandImproved);
     }
 
-    private double computeUmax() {
+    private double computeUMax() {
         double uMax = 0.0;
         for (int e = 0; e < topology.nEdges; e++) {
             double util = linkLoads[e] / topology.edgeCapacity[e];
@@ -201,24 +204,34 @@ public class HeuristicSolver {
      * Be careful that it is based on sumPowerP, which must be updated when linkLoad changes
      * @return the objective function value
      */
-    double computeObjFct() {
+    double computeObjFctSumPowerP() {
+        return Math.pow(sumPowerP, 1.0/P_NORM);
+    }
+
+    double computeObjFctFromScratch() {
+        for (int e = 0; e < topology.nEdges; e++) {
+            double util = linkLoads[e] / topology.edgeCapacity[e];
+            if (util != 0.0) {
+                sumPowerP += Math.pow(util, P_NORM);
+            }
+        }
         return Math.pow(sumPowerP, 1.0/P_NORM);
     }
 
 
-    private void removeLoad(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
-        applyPaths(s, intermediate, t, -demand);
+    private void removeLoad(int s, int intermediate, int t, double demand, boolean updateSumPowerP) throws IntermediateNodeIsEndException {
+        applyPaths(s, intermediate, t, -demand, updateSumPowerP);
     }
 
-    private void addLoad(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
-        applyPaths(s, intermediate, t, demand);
+    private void addLoad(int s, int intermediate, int t, double demand, boolean updateSumPowerP) throws IntermediateNodeIsEndException {
+        applyPaths(s, intermediate, t, demand, updateSumPowerP);
     }
 
-    private void applyPaths(int s, int intermediate, int t, double demand) throws IntermediateNodeIsEndException {
+    private void applyPaths(int s, int intermediate, int t, double demand, boolean updateSumPowerP) throws IntermediateNodeIsEndException {
         if (intermediate == s) { // Direct path
             EdgeFlowVector spVec = shortestPathsCache[s][t];
             for (int i = 0; i < spVec.edgeIds.length; i++) {
-                updateEdge(spVec.edgeIds[i], demand * spVec.frac[i]);
+                updateEdge(spVec.edgeIds[i], demand * spVec.frac[i], updateSumPowerP);
             }
         } else if (intermediate == t) {
             throw new IntermediateNodeIsEndException("");
@@ -226,24 +239,24 @@ public class HeuristicSolver {
             EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
             EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
             for (int i = 0; i < spVec1.edgeIds.length; i++) {
-                updateEdge(spVec1.edgeIds[i], demand * spVec1.frac[i]);
+                updateEdge(spVec1.edgeIds[i], demand * spVec1.frac[i], updateSumPowerP);
             }
             for (int i = 0; i < spVec2.edgeIds.length; i++) {
-                updateEdge(spVec2.edgeIds[i], demand * spVec2.frac[i]);
+                updateEdge(spVec2.edgeIds[i], demand * spVec2.frac[i], updateSumPowerP);
             }
         }
     }
 
-    private void updateEdge(int edgeId, double deltaLoad) {
+    private void updateEdge(int edgeId, double deltaLoad, boolean updateSumPowerP) {
         if (deltaLoad == 0.0) return;
         double capacity = topology.edgeCapacity[edgeId];
         double oldUtil = linkLoads[edgeId] / capacity;
-        if (oldUtil != 0.0) {
+        if (oldUtil != 0.0 && updateSumPowerP) {
             sumPowerP -= Math.pow(oldUtil, P_NORM);
         }
         linkLoads[edgeId] += deltaLoad;
         double newUtil = linkLoads[edgeId] / capacity;
-        if (newUtil != 0.0) {
+        if (newUtil != 0.0 && updateSumPowerP) {
             sumPowerP += Math.pow(newUtil, P_NORM);
         }
     }
