@@ -24,7 +24,7 @@ public class HeuristicSolver {
     private final double[] bestLinkLoads;
     private final int[][] currentSrPaths; // For now limited to 2-SR
     private final int[][] bestSrPaths; // For now limited to 2-SR
-    private final int P_NORM = 32;
+    private final int P_NORM = 36;
 
     /* Local variables for the local search */
     double sumPowerP = 0.0;
@@ -46,12 +46,11 @@ public class HeuristicSolver {
         initLinkLoads();
         try {
             simulatedAnnealing(endTime);
-            System.out.println("STARTING First Fit LS");
-            localSearch(endTime);
         } catch (IntermediateNodeIsEndException e) {
             System.err.println("Error: Intermediate node cannot be the destination");
             System.exit(0);
         }
+        updateBestLinkLoads();
         return computeBestUMax();
     }
 
@@ -78,7 +77,6 @@ public class HeuristicSolver {
         System.arraycopy(linkLoads, 0, bestLinkLoads, 0, topology.nEdges);
     }
 
-    // TODO COmpute UMax at each improvement ? At each temperature decrease recompute sumPowerP from scratch ?
     private void simulatedAnnealing(long endTime) throws IntermediateNodeIsEndException {
         double initialTemperature = computeInitialTemperature();
         double temperature = initialTemperature;
@@ -86,6 +84,7 @@ public class HeuristicSolver {
         double minTemperature = initialTemperature * 1e-5;
         int iterationsPerTemp = Math.max(100, demands.nDemands * topology.nNodes / 256);
 
+        double bestUMax = computeCurrentUMax();
         double currentObjectiveValue = computeObjFctSumPowerP();
         double bestObjectiveValue = currentObjectiveValue;
         java.util.Random rand = new java.util.Random();
@@ -112,20 +111,24 @@ public class HeuristicSolver {
                 double delta = currentObjectiveValue - newObjectiveValue;
                 if (delta > 0 || Math.exp(delta / temperature) > rand.nextDouble()) {
                     /* Accept the new solution */
-                    System.out.println("Accept w/ old objective value: " + currentObjectiveValue + " -> " + newObjectiveValue + " after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
+                    //System.out.println("Accept w/ old objective value: " + currentObjectiveValue + " -> " + newObjectiveValue + " after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
                     currentSrPaths[s][t] = newIntermediate;
                     currentObjectiveValue = newObjectiveValue;
 
                     /* Update the best solution if needed */
                     if (currentObjectiveValue < bestObjectiveValue) {
                         bestObjectiveValue = currentObjectiveValue;
-                        // Likely not needed as it is unlikely we get worse solution with low temp + we do local search after
-                        /* Update best paths */
-                        for (int i = 0; i < topology.nNodes; i++) {
-                            System.arraycopy(currentSrPaths[i], 0, bestSrPaths[i], 0, topology.nNodes);
+                        double currentUMax = computeCurrentUMax();
+                        if (currentUMax < bestUMax) {
+                            /* Update best paths */
+                            bestUMax = currentUMax;
+                            for (int i = 0; i < topology.nNodes; i++) {
+                                System.arraycopy(currentSrPaths[i], 0, bestSrPaths[i], 0, topology.nNodes);
+                            }
+                            /* Update best link loads */
+                            System.arraycopy(linkLoads, 0, bestLinkLoads, 0, topology.nEdges);
                         }
-                        /* Update best link loads */
-                        System.arraycopy(linkLoads, 0, bestLinkLoads, 0, topology.nEdges);
+
                     }
                 } else {
                     /* Revert to the old solution */
@@ -134,15 +137,14 @@ public class HeuristicSolver {
                 }
             }
             temperature *= coolingRate;
-            System.out.println("New temperature: " + temperature + " after seconds: " + ((System.currentTimeMillis() - startTime)/1000.0));
         }
     }
 
     private double computeInitialTemperature() {
-        return Math.pow(2, -11); // TODO tune this
+        return Math.pow(2, -10); // TODO tune this
     }
 
-    private void localSearch(long endTime) throws IntermediateNodeIsEndException {
+    private void firstFitLocalSearch(long endTime) throws IntermediateNodeIsEndException {
         int lastDemandImproved = 0;
         int currentDemand = 0;
         int currentNode = 0;
@@ -177,7 +179,7 @@ public class HeuristicSolver {
         } while(System.currentTimeMillis() < endTime && currentDemand != lastDemandImproved);
     }
 
-    private double computeUMax() {
+    private double computeCurrentUMax() {
         double uMax = 0.0;
         for (int e = 0; e < topology.nEdges; e++) {
             double util = linkLoads[e] / topology.edgeCapacity[e];
@@ -199,6 +201,37 @@ public class HeuristicSolver {
         return UMax;
     }
 
+    private void updateBestLinkLoads(){
+        // Update best link loads based on bestSrPaths
+        for (int e = 0; e < topology.nEdges; e++) {
+            bestLinkLoads[e] = 0.0;
+        }
+        for (int dem = 0; dem < demands.nDemands; dem++) {
+            int s = demands.source[dem];
+            int t = demands.dest[dem];
+            int intermediate = bestSrPaths[s][t];
+            double d = demands.amount[dem];
+            if (intermediate == s) { // Direct path
+                EdgeFlowVector spVec = shortestPathsCache[s][t];
+                for (int i = 0; i < spVec.edgeIds.length; i++) {
+                    bestLinkLoads[spVec.edgeIds[i]] += d * spVec.frac[i];
+                }
+            } else if (intermediate == t) {
+                System.err.println("Error: Intermediate node cannot be the destination");
+                System.exit(0);
+            } else {
+                EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+                EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+                for (int i = 0; i < spVec1.edgeIds.length; i++) {
+                    bestLinkLoads[spVec1.edgeIds[i]] += d * spVec1.frac[i];
+                }
+                for (int i = 0; i < spVec2.edgeIds.length; i++) {
+                    bestLinkLoads[spVec2.edgeIds[i]] += d * spVec2.frac[i];
+                }
+            }
+        }
+    }
+
     /**
      * Computes the objective function value as the p-norm of the link utilizations,
      * Be careful that it is based on sumPowerP, which must be updated when linkLoad changes
@@ -209,6 +242,7 @@ public class HeuristicSolver {
     }
 
     double computeObjFctFromScratch() {
+        sumPowerP = 0.0;
         for (int e = 0; e < topology.nEdges; e++) {
             double util = linkLoads[e] / topology.edgeCapacity[e];
             if (util != 0.0) {
