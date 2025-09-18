@@ -1,6 +1,7 @@
 package edu.repetita.core;
 
 import java.io.IOException;
+import java.util.List;
 
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.SRPaths;
@@ -8,8 +9,8 @@ import edu.repetita.paths.SRPaths;
 public class Setting {
     private String topologyFilename;
     private Topology topology = null;
-    private String demandsFilename;
-    private Demands demands = null;
+    private List<String> demandsFilenames;
+    private Demands[] demands;
     private RoutingConfiguration config;
     private int maxSegments;
 
@@ -26,10 +27,13 @@ public class Setting {
         }
     }
 
-    public void setDemandsFilename(String demandsFilename) {
-        this.demandsFilename = demandsFilename;
+    public void setDemandsFilename(List<String> demandsFilename) {
+        this.demandsFilenames = demandsFilename;
+        this.demands = new Demands[demandsFilenames.size()];
         try {
-            this.demands = RepetitaParser.parseDemands(this.demandsFilename);
+            for (int i = 0; i < demandsFilenames.size(); i++) {
+                this.demands[i] = RepetitaParser.parseDemands(this.demandsFilenames.get(i));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -47,13 +51,13 @@ public class Setting {
         this.topology = topology;
     }
 
-    public String getDemandsFilename() {
-        return this.demandsFilename;
+    public List<String> getDemandsFilename() {
+        return this.demandsFilenames;
     }
 
-    public Demands getDemands() { return this.demands; }
+    public Demands[] getDemands() { return this.demands; }
 
-    public void setDemands(Demands newDemands) {
+    public void setDemands(Demands[] newDemands) {
         this.demands = newDemands;
     }
 

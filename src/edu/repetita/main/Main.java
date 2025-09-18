@@ -101,7 +101,7 @@ public class Main {
     /* Main method */
     public static void main(String[] args) throws Exception {
         String graphFilename = null;
-        String demandsFilename = null;
+        List<String> demandsFilename = new ArrayList<>();
         double timeLimit = 0.0;
         int verboseLevel = 0;
         boolean help = false;
@@ -124,7 +124,12 @@ public class Main {
                     break;
 
                 case "-demands":
-                    demandsFilename = args[++i];
+                    i++;
+                    while (i < args.length && !args[i].startsWith("-")) {
+                        demandsFilename.add(args[i]);
+                        i++;
+                    }
+                    i--; // adjust for the outer loop's i++
                     break;
 
                 case "-t":

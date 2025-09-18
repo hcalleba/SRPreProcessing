@@ -56,16 +56,8 @@ public class HeurSR extends edu.repetita.solvers.HeurSR {
             endTime = startTime + maxExecTime;
         }
         Topology topology = setting.getTopology();
-        Demands demands = setting.getDemands();
+        Demands[] demands = setting.getDemands();
         int maxSegments = setting.getMaxSegments();
-
-//        /* preprocessing */
-//        SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments, demands);
-//        ArrayList<int[]> paths = new ArrayList<>();
-//
-//        /* Preprocess the SR-paths */
-//        int nbPaths = preprocessTopology(topology.nNodes, root, paths, endTime);
-//        preprocessingTime = System.currentTimeMillis() - startTime;
 
         /* Solve the ILP or write the non-dominated paths to -outpaths file */
         startTime = System.currentTimeMillis();
