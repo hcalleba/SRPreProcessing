@@ -1,11 +1,11 @@
 package edu.repetita.solvers.grp;
 
+import com.gurobi.gurobi.*;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Solver;
 import edu.repetita.core.Topology;
 import java.util.ArrayList;
-import gurobi.*;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
 
