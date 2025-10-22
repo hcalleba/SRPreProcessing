@@ -53,7 +53,7 @@ public class GRP extends Solver {
             /* Create empty model */
             GRBModel model = new GRBModel(env);
             model.set(GRB.DoubleParam.TimeLimit, (double) (maxTime/1000));
-            model.set(GRB.IntParam.Threads, 8);
+            model.set(GRB.IntParam.Threads, 4);
 
             /* Create variables */
             GRBVar[][][] flowVars = new GRBVar[topology.nNodes][topology.nNodes][topology.nEdges]; // technically only need to create them for each demand, but easier this way
