@@ -1,9 +1,7 @@
 package edu.repetita.io;
 
 import edu.repetita.core.Demands;
-import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
 import edu.repetita.utils.datastructures.Conversions;
 
 import java.io.IOException;
@@ -11,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Stream;
-
-import static edu.repetita.core.Demands.toTrafficMatrix;
 
 /**
  * Utility class that contains static methods to parse topologies and demands.
@@ -139,7 +135,7 @@ final public class RepetitaParser {
 
             // make Demands from parsed info
 
-            String label[] = labels.toArray(new String[0]);
+            String[] label = labels.toArray(new String[0]);
             int[] source = Conversions.arrayListInteger2arrayint(srcs);
             int[] dest = Conversions.arrayListInteger2arrayint(dests);
             double[] amount = Conversions.arrayListDouble2arraydouble(bws);
@@ -194,7 +190,7 @@ final public class RepetitaParser {
         return solverFeatures;
     }
 
-    public static ArrayList<int[]> parseSRPaths(String filename, SegmentTreeRoot root, ArrayList<int[]> paths) throws IOException {
+    public static void parseSRPaths(String filename, Topology topology, ArrayList<int[]> paths) throws IOException {
         try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
             Iterator<String> lines = lineStream.iterator();
 
@@ -210,54 +206,47 @@ final public class RepetitaParser {
 
                 /* Only add path if there is demand between nodes */
                 try {
-                    int lastSegment = Integer.parseInt(SRNodes[SRNodes.length - 1]);
-                    int endNode = (lastSegment < root.nNodes) ? lastSegment : root.edgeDest[lastSegment-root.nNodes];
-                    if (root.trafficMatrix[Integer.parseInt(SRNodes[0])][endNode] > 0) {
-                        paths.add(new int[SRNodes.length]);
-                        for (int i = 0; i < SRNodes.length; i++) {
-                            paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
-                        }
+                    paths.add(new int[SRNodes.length]);
+                    for (int i = 0; i < SRNodes.length; i++) {
+                        paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
                     }
                 } catch (NumberFormatException e) {
                     continue;
                 }
             }
-            return paths;
-        } catch (Exception e) { // let it crash
-            throw e;
         }
     }
 
-    public static ArrayList<int[]> parseOptPaths(String filename, ArrayList<int[]> paths, Setting setting) throws IOException {
-        try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
-            Iterator<String> lines = lineStream.iterator();
-
-            lines.next();  // Ignore first two lines
-            lines.next();
-
-            double[][] demands = Demands.toTrafficMatrix(setting.getDemands(), setting.getTopology().nNodes);
-            String line;
-            while (lines.hasNext()) {
-                line = lines.next();
-                if (line.isEmpty()) break;
-
-                line = line.replace ("[", "");
-                line = line.replace ("]", "");
-                String[] SRNodes = line.split (", ");
-
-                /* Only add path if there is demand between nodes */
-                int lastSegment = Integer.parseInt(SRNodes[SRNodes.length-1]);
-                int endNode = (lastSegment < setting.getTopology().nNodes) ? lastSegment : setting.getTopology().edgeDest[lastSegment-setting.getTopology().nNodes];
-                if (demands[Integer.parseInt(SRNodes[0])][endNode] > 0) {
-                    paths.add(new int[SRNodes.length]);
-                    for (int i = 0; i < SRNodes.length; i++) {
-                        paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
-                    }
-                }
-            }
-            return paths;
-        } catch (Exception e) { // let it crash
-            throw e;
-        }
-    }
+//    public static ArrayList<int[]> parseOptPaths(String filename, ArrayList<int[]> paths, Setting setting) throws IOException {
+//        try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {  // autoclose stream
+//            Iterator<String> lines = lineStream.iterator();
+//
+//            lines.next();  // Ignore first two lines
+//            lines.next();
+//
+//            double[][] demands = Demands.toTrafficMatrix(setting.getDemands(), setting.getTopology().nNodes);
+//            String line;
+//            while (lines.hasNext()) {
+//                line = lines.next();
+//                if (line.isEmpty()) break;
+//
+//                line = line.replace ("[", "");
+//                line = line.replace ("]", "");
+//                String[] SRNodes = line.split (", ");
+//
+//                /* Only add path if there is demand between nodes */
+//                int lastSegment = Integer.parseInt(SRNodes[SRNodes.length-1]);
+//                int endNode = (lastSegment < setting.getTopology().nNodes) ? lastSegment : setting.getTopology().edgeDest[lastSegment-setting.getTopology().nNodes];
+//                if (demands[Integer.parseInt(SRNodes[0])][endNode] > 0) {
+//                    paths.add(new int[SRNodes.length]);
+//                    for (int i = 0; i < SRNodes.length; i++) {
+//                        paths.get(paths.size() - 1)[i] = Integer.parseInt(SRNodes[i]);
+//                    }
+//                }
+//            }
+//            return paths;
+//        } catch (Exception e) { // let it crash
+//            throw e;
+//        }
+//    }
 }

@@ -100,15 +100,14 @@ public class Main {
 
     /* Main method */
     public static void main(String[] args) throws Exception {
+        // Only scenario available here is loadFromFile
         String graphFilename = null;
-        String demandsFilename = null;
+        ArrayList<String> demandsFilename = new ArrayList<>();
         String inpathsFilename = null;
-        String scenarioChoice = "SRPP";
         double timeLimit = 0.0;
         boolean outpaths = false;
         int verboseLevel = 0;
         boolean help = false;
-        int maxSegments = 2;
 
         // parse command line arguments
         int i = 0;
@@ -122,16 +121,17 @@ public class Main {
                     print_doc();
                     return;
 
-                case "-scenario":
-                    scenarioChoice = args[++i];
-                    break;
-
                 case "-graph":
                     graphFilename = args[++i];
                     break;
 
                 case "-demands":
-                    demandsFilename = args[++i];
+                    i++;
+                    while (i < args.length && !args[i].startsWith("-")) {
+                        demandsFilename.add(args[i]);
+                        i++;
+                    }
+                    i--; // step back one position as the outer loop will increment i
                     break;
 
                 case "-t":
@@ -156,13 +156,6 @@ public class Main {
                     RepetitaWriter.setVerbose(verboseLevel);
                     break;
 
-                case "-maxSR":
-                    maxSegments = Integer.parseInt(args[++i]);
-                    if (maxSegments < 2) {
-                        printHelp("Number of segments should be at least two");
-                    }
-                    break;
-
                 default:
                     printHelp("Unknown option " + args[i]);
             }
@@ -172,24 +165,16 @@ public class Main {
         /* check that the strictly necessary information has been provided in input */
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename == null && !scenarioChoice.equals("preprocess")) printHelp("Needs an input demands file (or preprocess scenario)");
         if (!outpaths) printHelp("Need an output file name (-outpaths)");
-        if (!scenarioChoice.equals("SRPP") && !scenarioChoice.equals("full") && !scenarioChoice.equals("loadFromFile") && !scenarioChoice.equals("preprocess")) {
-            printHelp("Invalid scenario choice : "+scenarioChoice);
-        }
-        if (scenarioChoice.equals("loadFromFile") && inpathsFilename == null) printHelp("No input file given for the paths");
+        if (inpathsFilename == null) printHelp("No input file given for the paths");
 
 
         /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
-        if (!scenarioChoice.equals("preprocess")) {
-            setting.setDemandsFilename(demandsFilename);
-        }
-        setting.setMaxSegments(maxSegments);
 
         /* Solve the problem for the topology */
-        Solver solver = new SRPP(inpathsFilename, outpaths, scenarioChoice);
+        Solver solver = new SRPP(inpathsFilename, outpaths);
         solver.solve(setting, (long) timeLimit * 1000);
     }
 }

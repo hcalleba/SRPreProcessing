@@ -28,14 +28,12 @@ public class SRPP extends SRSolver {
     private long ILPSolveTime;
     boolean writeOutPaths;
     String inpathsFilename;
-    String scenarioChoice;
     double uMax = 0.0;
 
-    public SRPP(String inpathsFilename, boolean writeOutPaths, String scenarioChoice) {
+    public SRPP(String inpathsFilename, boolean writeOutPaths) {
         super();
         this.inpathsFilename = inpathsFilename;
         this.writeOutPaths = writeOutPaths;
-        this.scenarioChoice = scenarioChoice;
     }
 
     @Override
@@ -72,36 +70,27 @@ public class SRPP extends SRSolver {
             endTime = startTime + maxExecTime;
         }
         Topology topology = setting.getTopology();
-        Demands demands = setting.getDemands();
-        int maxSegments = setting.getMaxSegments();
+        ArrayList<Demands> demands = setting.getDemands(); // TODO make changes to allow multiple demands files
 
         /* preprocessing */
-        SegmentTreeRoot root = new SegmentTreeRoot(topology, maxSegments, demands);
         ArrayList<int[]> paths = new ArrayList<>();
 
         /* Preprocess the SR-paths */
         int nbPaths = 0;
-        nbPaths = preprocessTopology(topology.nNodes, root, paths, endTime);
-        preprocessingTime = System.currentTimeMillis() - startTime;
+        nbPaths = preprocessTopology(topology.nNodes, topology, paths, endTime);
 
-        /* Solve the ILP or write the non-dominated paths to -outpaths file */
+        /* Solve the ILP */
         startTime = System.currentTimeMillis();
         if (System.currentTimeMillis() < endTime) {
-            if (scenarioChoice.equals("preprocess")) {
-                preprocessedPathsToFile(paths);
-
-            } else {
-                LinearProblem lp = new LinearProblem(DUAL, paths, root, topology);
-                uMax = lp.execute(endTime);
-                RepetitaWriter.writeToPathFile(lp.getSolution());
-                lp.dispose();
-            }
+            LinearProblem lp = new LinearProblem(DUAL, paths, root, topology); // TODO change
+            uMax = lp.execute(endTime);
+            RepetitaWriter.writeToPathFile(lp.getSolution());
+            lp.dispose();
         }
         ILPSolveTime = System.currentTimeMillis() - startTime;
 
         /* Log output */
         RepetitaWriter.appendToOutput("OK");
-        RepetitaWriter.appendToOutput("Preprocessing time : " + (double)preprocessingTime/1000 + " seconds");
         RepetitaWriter.appendToOutput("ILP solve time : " + (double)ILPSolveTime/1000 + " seconds");
         RepetitaWriter.appendToOutput("Total time elapsed : " + (double)(ILPSolveTime+preprocessingTime)/1000 + " seconds");
         RepetitaWriter.appendToOutput("Total number of paths after preprocessing : " + nbPaths);
@@ -112,99 +101,21 @@ public class SRPP extends SRSolver {
      * Preprocesses the topology to generate all non-dominated paths, all paths or load paths from a file depending
      * on the scenario
      * @param nNodes the number of nodes in the topology
-     * @param root the root of the SegmentTree
+     * @param topology the topology
      * @param paths an arraylist that will serve as container for all the resulting paths
      * @return the number of generated paths in case of preprocessing, 0 otherwise (if all demands strictly positive,
      * this is equal to the size of paths)
      */
-    private int preprocessTopology(int nNodes, SegmentTreeRoot root, ArrayList<int[]> paths, long endTime) {
+    private int preprocessTopology(int nNodes, Topology topology, ArrayList<int[]> paths, long endTime) {
         int nbPaths = 0;
-        switch (scenarioChoice) {
-            case "SRPP":
-            case "preprocess":
-                root.createODPaths(endTime);
-                if (System.currentTimeMillis() > endTime) {
-                    return -1;
-                }
-                for (int originNumber = 0; originNumber < nNodes; originNumber++) {
-                    for (int destNumber = 0; destNumber < nNodes; destNumber++) {
-                        /* if preprocess we keep all paths, otherwise we only keep OD-paths for which there is a
-                        positive demand between the nodes */
-                        nbPaths += root.getODPaths(originNumber, destNumber).length;
-                        if (scenarioChoice.equals("preprocess")) {
-                            if (originNumber != destNumber) {
-                                Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
-                            }
-                        } else {
-                            if (root.trafficMatrix[originNumber][destNumber] > 0) {
-                                Collections.addAll(paths, root.getODPaths(originNumber, destNumber));
-                            }
-                        }
-                    }
-                }
-                root.freeLeavesMemory();
-                break;
-            /* Load SR-paths from file if one is given */
-            case "loadFromFile":
-                try {
-                    RepetitaParser.parseSRPaths(inpathsFilename, root, paths);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    System.exit(1);
-                }
-                break;
-            /* Simply create all possible SR-paths */
-            case "full":
-                for (int depth = 2; depth <= root.maxSegments + 1; depth++) {
-                    int[] path = new int[depth];
-                    for (int originNode = 0; originNode < nNodes; originNode++) {
-                        path[0] = originNode;
-                        addSegment(path, 1, nNodes, paths, root);
-                    }
-                }
-                break;
+        /* Load SR-paths from file if one is given */
+        try {
+            RepetitaParser.parseSRPaths(inpathsFilename, topology, paths);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(1);
         }
         return nbPaths;
-    }
-
-    /**
-     * Function that writes the preprocessed paths to the -outpaths file
-     * @param paths the preprocessed SR-paths
-     */
-    private void preprocessedPathsToFile(ArrayList<int[]> paths) {
-        StringBuilder builder = new StringBuilder();
-        for (int[] path : paths) {
-            builder.append(Arrays.toString(path));
-            builder.append("\n");
-        }
-        RepetitaWriter.writeToPathFile(builder.toString());
-    }
-
-    /**
-     * helper function used to enumerate all possible SR-paths (without them being preprocessed)
-     * @param path array to which we are currently writing the path
-     * @param idx index which we are processing in path
-     * @param nNodes the number of nodes of the topology
-     * @param paths an arraylist to which we should add a new path once it is created
-     */
-    private void addSegment(int[] path, int idx, int nNodes, ArrayList<int[]> paths, SegmentTreeRoot root) {
-        if (idx == path.length) {
-            if (root.trafficMatrix[path[0]][path[path.length-1]] > 0){
-                paths.add(path.clone());
-            }
-            return;
-        }
-        for (int nextNode = 0; nextNode < nNodes; nextNode++) {
-            boolean inside = false;
-            for (int i = 0; i < idx; i++) {
-                inside = inside || path[i]==nextNode;
-            }
-            if (!inside) {
-                path[idx] = nextNode;
-                /* Only add SR-path if there is a demand between the nodes */
-                addSegment(path, idx + 1, nNodes, paths, root);
-            }
-        }
     }
 
     @Override
