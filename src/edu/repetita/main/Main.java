@@ -172,6 +172,7 @@ public class Main {
         /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
+        setting.setDemandsFilename(demandsFilename);
 
         /* Solve the problem for the topology */
         Solver solver = new SRPP(inpathsFilename, outpaths);

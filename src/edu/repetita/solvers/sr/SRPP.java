@@ -7,15 +7,11 @@ import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.SRSolver;
 import edu.repetita.solvers.sr.srpp.linearproblem.LinearProblem;
-import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
-import static edu.repetita.solvers.sr.srpp.linearproblem.ROBUST.*;
 
 /**
  * Solver that implements preprocessing techniques to eliminate dominated paths in Segment Routing.
@@ -23,7 +19,7 @@ import static edu.repetita.solvers.sr.srpp.linearproblem.ROBUST.*;
  */
 public class SRPP extends SRSolver {
 
-    private static long maxExecTime = 86400000;  // In ms (= 24 hours)
+    private static long MAXEXECTIME = 86400000;  // In ms (= 24 hours)
     private long preprocessingTime;
     private long ILPSolveTime;
     boolean writeOutPaths;
@@ -67,23 +63,19 @@ public class SRPP extends SRSolver {
         if (milliseconds > 0) {
             endTime = startTime + milliseconds;
         } else {
-            endTime = startTime + maxExecTime;
+            endTime = startTime + MAXEXECTIME;
         }
         Topology topology = setting.getTopology();
-        ArrayList<Demands> demands = setting.getDemands(); // TODO make changes to allow multiple demands files
 
         /* preprocessing */
         ArrayList<int[]> paths = new ArrayList<>();
-
-        /* Preprocess the SR-paths */
-        int nbPaths = 0;
-        nbPaths = preprocessTopology(topology.nNodes, topology, paths, endTime);
+        int nbPaths = preprocessTopology(topology.nNodes, topology, paths, endTime);
 
         /* Solve the ILP */
         startTime = System.currentTimeMillis();
         if (System.currentTimeMillis() < endTime) {
-            LinearProblem lp = new LinearProblem(DUAL, paths, root, topology); // TODO change
-            uMax = lp.execute(endTime);
+            LinearProblem lp = new LinearProblem(paths, setting);
+            uMax = lp.execute(endTime, false);
             RepetitaWriter.writeToPathFile(lp.getSolution());
             lp.dispose();
         }

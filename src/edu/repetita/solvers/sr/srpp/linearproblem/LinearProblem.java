@@ -1,92 +1,46 @@
 package edu.repetita.solvers.sr.srpp.linearproblem;
 
+import edu.repetita.core.Demands;
+import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgeLoadsLinkedList;
-import edu.repetita.solvers.sr.srpp.edgeloads.EdgePair;
-import edu.repetita.solvers.sr.srpp.segmenttree.SegmentTreeRoot;
+import edu.repetita.paths.ShortestPaths;
+import edu.repetita.solvers.sr.srpp.edgeloads.EdgeFlowVector;
 import com.gurobi.gurobi.*;
+import edu.repetita.solvers.sr.srpp.edgeloads.NodePair;
+import edu.repetita.solvers.sr.srpp.edgeloads.UnifiedDemand;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Objects;
-
-import static java.lang.Math.min;
-
-enum VARS {
-    DEFAULT,
-    ROBUSTDUAL
-}
+import java.util.*;
 
 public class LinearProblem {
     int nbThreads = 8;
-    boolean highPrecision = false; // if true sets the optimalityTol parameter to 10^-8, o/w defaults to 10^-4
     DEBUG debug = DEBUG.MODEL;
-    OBJECTIVE obj = OBJECTIVE.UMAX;
-    ROBUST robustType;
-    int robustGamma = 2; // TODO parametrize, should test that is is lower than nb of demands
-    double robustDeviation = 1; // TODO parametrize
     double PRECISION = 0.000001;
+    private final EdgeFlowVector[][] shortestPathsCache;
+    private final Map<NodePair, UnifiedDemand> unifiedDemands;
 
     Topology topology;
     ArrayList<int[]> paths;
-    SegmentTreeRoot root;
-    double[][] initialTM;
+    ArrayList<Demands> demandMatrices;
 
     GRBEnv env;
     GRBModel model;
     GRBVar[] SRPaths;
     GRBVar uMax;
-    GRBVar[] delta;
-    GRBVar[][][] lambda;
 
-    BadTM lastWorstTM;
-    double currSol;
-
-    public LinearProblem(ROBUST robust, ArrayList<int[]> paths, SegmentTreeRoot root, Topology topology) {
-        this.robustType = robust;
-        this.topology = topology;
+    public LinearProblem(ArrayList<int[]> paths, Setting setting) {
+        this.topology = setting.getTopology();
         this.paths = paths;
-        this.root = root;
-        this.initialTM = root.trafficMatrix;
+        this.demandMatrices = setting.getDemands();
+        this.shortestPathsCache = new EdgeFlowVector[topology.nNodes][topology.nNodes];
+        this.unifiedDemands = buildUnifiedDemands();
     }
 
-    public double execute (long endTime) {
-        switch (robustType) {
-            case NONE:
-                createModel(endTime, false, VARS.DEFAULT, initialTM);
-                break;
-            case DUAL:
-                createModel(endTime, false, VARS.ROBUSTDUAL, initialTM);
-                break;
-            case ITERATIVE_INTEGER:
-                createModel(endTime, false, VARS.DEFAULT, initFirstRobustTM());
-                break;
-            case ITERATIVE_CONTINUOUS:
-            case ITERATIVE_MIXED:
-                createModel(endTime, true, VARS.DEFAULT, initFirstRobustTM());
-                break;
-            default:
-                throw new RuntimeException("Robust formulation not implemented");
-        }
-
-        switch(robustType) {
-            case NONE:
-            case DUAL:
-                return solve();
-            case ITERATIVE_INTEGER:
-                return iterativeIntegerLoop();
-                // faire un solve ajouter pire matrice et refaire un solve etc.
-            case ITERATIVE_CONTINUOUS:
-            case ITERATIVE_MIXED:
-                // TODO
-                return 0.0;
-            default:
-                throw new RuntimeException("Robust formulation not implemented");
-        }
+    public double execute (long endTime, boolean continuous) {
+            createModel(endTime, continuous);
+            return solve();
     }
 
-    private void createModel(long endTime, boolean continuous, VARS vars, double[][] initialTM) {
+    private void createModel(long endTime, boolean continuous) {
         try {
             /* Create empty environment, set options, and start */
             env = new GRBEnv(true);
@@ -105,38 +59,23 @@ public class LinearProblem {
                     env.set(GRB.IntParam.OutputFlag, 0);
                     env.set(GRB.IntParam.LogToConsole, 1);
             }
-            env.set("logFile", "out/gurobi.log");
             env.start();
 
             /* Create empty model */
             model = new GRBModel(env);
             model.set(GRB.DoubleParam.TimeLimit, (double) (endTime-System.currentTimeMillis())/1000);
             model.set(GRB.IntParam.Threads, nbThreads);
-            if (highPrecision) {
-                model.set(GRB.DoubleParam.OptimalityTol, 0.00000001);
-            }
+            model.set(GRB.DoubleParam.OptimalityTol, PRECISION);
 
             /* Create variables */
             createDefaultVariables(continuous);
-            if (vars == VARS.ROBUSTDUAL) {
-                createRobustVariables();
-            }
 
             /* set objective */
-            if (Objects.requireNonNull(obj) == OBJECTIVE.UMAX) {
-                setUMaxObjective();
-            } else {
-                throw new RuntimeException("Objective not implemented");
-            }
+            setUMaxObjective();
 
             /* Adding constraints */
             createUniquePathExpr();
-            if (vars == VARS.ROBUSTDUAL) {
-                createRobustUMaxExprTM(initialTM);
-                createRobustConstraint();
-            } else {
-                createUMaxExprTM(initialTM);
-            }
+            createUMaxExprTM();
 
             if (debug == DEBUG.MODEL) {
                 model.write("out/model.lp");
@@ -156,21 +95,6 @@ public class LinearProblem {
         uMax = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "uMax");
     }
 
-    private void createRobustVariables() throws GRBException {
-        delta = new GRBVar[topology.nEdges];
-        for (int i = 0; i < topology.nEdges; i++) {
-            delta[i] = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "delta-"+i);
-        }
-        lambda = new GRBVar[topology.nEdges][topology.nNodes][topology.nNodes];
-        for (int a = 0; a < topology.nEdges; a++) {
-            for (int s = 0; s < topology.nNodes; s++) {
-                for (int t = 0; t < topology.nNodes; t++) {
-                    lambda[a][s][t] = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "lambda-"+a+"-"+s+"-"+t);
-                }
-            }
-        }
-    }
-
     private void setUMaxObjective() throws GRBException {
         GRBLinExpr objExpr = new GRBLinExpr();
         objExpr.addTerm(1.0, uMax);
@@ -182,7 +106,9 @@ public class LinearProblem {
         GRBLinExpr[][] uniquePathExpr = new GRBLinExpr[topology.nNodes][topology.nNodes];
         for (int i = 0; i < topology.nNodes; i++) {
             for (int j = 0; j < topology.nNodes; j++) {
-                uniquePathExpr[i][j] = new GRBLinExpr();
+                if (i != j) {
+                    uniquePathExpr[i][j] = new GRBLinExpr();
+                }
             }
         }
         /* add the variables corresponding to the paths to the expressions */
@@ -196,122 +122,78 @@ public class LinearProblem {
         for (int i = 0; i < topology.nNodes; i++) {
             for (int j = 0; j < topology.nNodes; j++) {
                 if (i != j) {
-                    if(initialTM[i][j] > 0) {
-                        model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
-                    }
+                    model.addConstr(uniquePathExpr[i][j], GRB.EQUAL, 1.0, "unique_SR-path-" + i + "-" + j);
                 }
             }
         }
     }
 
-    private void createUMaxExprTM(double[][] TM) throws GRBException {
-        GRBLinExpr[] uMaxExpr = getGrbLinExprs(TM);
+    private void createUMaxExprTM() throws GRBException {
+        computeShortestPaths(topology);
+        GRBLinExpr[][] uMaxExpr = getGrbLinExprs();
         addUMaxExpr(uMaxExpr);
     }
 
-    private void createRobustUMaxExprTM(double[][] TM) throws GRBException {
-        GRBLinExpr[] uMaxExpr = getGrbLinExprs(TM);
-
-        /* add the robust part to the expressions */
-        for (int i = 0; i < topology.nEdges; i++) {
-            uMaxExpr[i].addTerm(robustGamma, delta[i]);
-            for (int s = 0; s < topology.nNodes; s++) {
-                for (int t = 0; t < topology.nNodes; t++) {
-                    uMaxExpr[i].addTerm(1.0, lambda[i][s][t]);
-                }
-            }
-        }
-        addUMaxExpr(uMaxExpr);
-    }
-
-    private void addUMaxExpr(GRBLinExpr[] uMaxExpr) throws GRBException {
+    private void addUMaxExpr(GRBLinExpr[][] uMaxExpr) throws GRBException {
         /* subtract uMax * edge capacity to the expressions and add them to the model */
-        for (int i =0; i < topology.nEdges; i++) {
-            uMaxExpr[i].addTerm(-topology.edgeCapacity[i], uMax);
-            model.addConstr(uMaxExpr[i], GRB.LESS_EQUAL, 0.0, "uMax-edge-"+i);
+
+        for (int tmIdx = 0; tmIdx < demandMatrices.size(); tmIdx++) {
+            for (int i = 0; i < topology.nEdges; i++) {
+                uMaxExpr[tmIdx][i].addTerm(-topology.edgeCapacity[i], uMax);
+                model.addConstr(uMaxExpr[tmIdx][i], GRB.LESS_EQUAL, 0.0, "uMax-TM-" + tmIdx + "-edge-" + i);
+            }
         }
     }
 
     /**
      * Returns an array of expressions corresponding to
-     * $$\sum_{(s,t) \in N \times N} \textbf{D}(s,t) \sum_{p \in \mathcal{P}^k_{(s,t)}} f^p_a x_p \forall a \in A$$
-     * @param TM the traffic matrix from which the values for $$\textbf{D}(s,t)$$ are taken
+     * $$\sum_{(s,t) \in N \times N} \textbf{D}(s,t) \sum_{p \in \mathcal{P}^k_{(s,t)}} f^p_a x_p \forall a \in A \forall demand matrix$$
      * @return the array of expressions
      */
-    private GRBLinExpr[] getGrbLinExprs(double[][] TM) {
+    private GRBLinExpr[][] getGrbLinExprs() {
         /* create the expressions */
-        GRBLinExpr[] uMaxExpr = new GRBLinExpr[topology.nEdges];
-        for (int i = 0; i < topology.nEdges; i++) {
-            uMaxExpr[i] = new GRBLinExpr();
+        GRBLinExpr[][] uMaxExpr = new GRBLinExpr[demandMatrices.size()][topology.nEdges];
+        for (int tmIdx = 0; tmIdx < demandMatrices.size(); tmIdx++) {
+            for (int edgeIdx = 0; edgeIdx < topology.nEdges; edgeIdx++) {
+                uMaxExpr[tmIdx][edgeIdx] = new GRBLinExpr();
+            }
         }
+
         /* for each path, for each edge it uses, adds the path with potential traffic to the expression */
-        for (int i = 0; i < paths.size(); i++) {
-            int[] path = paths.get(i);
-            EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
-            for (EdgePair edgePair : edgeLoads) {
-                if (edgePair.getLoad() != 0) {
-                    int startNode = getStartNode(path);
-                    int endNode = getEndNode(path);
-                    uMaxExpr[edgePair.getKey()].addTerm(
-                            TM[startNode][endNode]*edgePair.getLoad(), SRPaths[i]);
+        for (int pathIdx = 0; pathIdx < paths.size(); pathIdx++) {
+            int[] path = paths.get(pathIdx);
+            int startNode = getStartNode(path);
+            int endNode = getEndNode(path);
+
+            // Compute edge loads for this path
+            Map<Integer, Double> edgeLoads = computeEdgeLoadsForPath(path);
+
+            // Add to expressions for each TM
+            for (int tmIdx = 0; tmIdx < demandMatrices.size(); tmIdx++) {
+                UnifiedDemand unifiedDemand = unifiedDemands.get(new NodePair(startNode, endNode));
+                if (unifiedDemand == null) {
+                    continue; // Skip this path if no demand exists
+                }
+                double demandValue = unifiedDemand.amounts[tmIdx];
+
+
+                for (Map.Entry<Integer, Double> entry : edgeLoads.entrySet()) {
+                    int edgeId = entry.getKey();
+                    double load = entry.getValue();
+
+                    if (load > 0) {
+                        uMaxExpr[tmIdx][edgeId].addTerm(demandValue * load, SRPaths[pathIdx]);
+                    }
                 }
             }
         }
         return uMaxExpr;
     }
 
-    private GRBLinExpr[] getGrbLinExprs(BadTM worseDemands) {
-        double[][] TMcopy = new double[initialTM.length][];
-        for (int i = 0; i < initialTM.length; i++) {
-            TMcopy[i] = initialTM[i].clone();
-        }
-        for (int i = 0; i < robustGamma; i++) {
-            TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)] = TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)] + robustDeviation * TMcopy[worseDemands.getStart(i)][worseDemands.getEnd(i)];
-        }
-        return getGrbLinExprs(TMcopy);
-    }
-
-    private void createRobustConstraint() throws GRBException {
-        GRBLinExpr[][][] robustExpr = new GRBLinExpr[topology.nEdges][topology.nNodes][topology.nNodes];
-        for (int a = 0; a < topology.nEdges; a++) {
-            for (int s = 0; s < topology.nNodes; s++) {
-                for (int t = 0; t < topology.nNodes; t++) {
-                    robustExpr[a][s][t] = new GRBLinExpr();
-                    robustExpr[a][s][t].addTerm(1.0, delta[a]);
-                    robustExpr[a][s][t].addTerm(1.0, lambda[a][s][t]);
-                }
-            }
-        }
-        for (int i = 0; i < paths.size(); i++) {
-            int[] path = paths.get(i);
-            EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
-            for (EdgePair edgePair : edgeLoads) {
-                if (edgePair.getLoad() != 0) {
-                    int startNode = path[0];
-                    int endNode = (path[path.length-1] < root.nNodes) ? path[path.length-1] : root.edgeDest[path[path.length-1]-root.nNodes];
-                    // root.trafficMatrix[startNode][endNode]*robustDeviation corresponds here to e_{st}
-                    double lhs = root.trafficMatrix[startNode][endNode] * robustDeviation * edgePair.getLoad();
-                    robustExpr[edgePair.getKey()][startNode][endNode].addTerm(-lhs, SRPaths[i]);
-                }
-            }
-        }
-        for (int a = 0; a < topology.nEdges; a++) {
-            for (int s = 0; s < topology.nNodes; s++) {
-                for (int t = 0; t < topology.nNodes; t++) {
-                    /* if there are only two terms, the constraint is redundant because we have $\lambda_{ast} + delta_{a} \geq 0$ */
-                    if (robustExpr[a][s][t].size() > 2) {
-                        model.addConstr(robustExpr[a][s][t], GRB.GREATER_EQUAL, 0.0, "robust-" + a + "-" + s + "-" + t);
-                    }
-                }
-            }
-        }
-    }
-
     private double solve() {
         try {
             model.optimize();
-            double result = model.get(GRB.DoubleAttr.ObjVal);
-            return result;
+            return model.get(GRB.DoubleAttr.ObjVal);
         } catch (GRBException e) {
             throw new RuntimeException(e);
         }
@@ -363,117 +245,128 @@ public class LinearProblem {
         return (path[path.length-1] < topology.nNodes) ? path[path.length-1] : topology.edgeDest[path[path.length-1]-topology.nNodes];
     }
 
-    /**
-     * Finds the indices of the robustGamma biggest values in the traffic matrix
-     * Since I assume robustGamma is relatively small, I simply iterate a max search robustGamma times
-     * instead of sorting the matrix
-     * @return an array of robustGamma indices
-     */
-    private BadTM getInitialWorstTM() {
-        double[][] TMcopy = new double[initialTM.length][];
-        for (int i = 0; i < initialTM.length; i++) {
-            TMcopy[i] = initialTM[i].clone();
-        }
-        BadTM ret = new BadTM(robustGamma);
-        // int[][] ret = new int[2][robustGamma]; // TODO change using tuple and BadTM class
-        for (int k=0; k < robustGamma; k++) {
-            double max = 0.0;
-            for (int i = 0; i < TMcopy.length; i++) {
-                for (int j = 0; j < TMcopy.length; j++) {
-                    if (TMcopy[i][j] > max) {
-                        max = TMcopy[i][j];
-                        ret.add(i, j, k);
+    private void computeShortestPaths(Topology topology) {
+        ShortestPaths sp = new ShortestPaths(topology);
+        sp.computeShortestPaths();
+        int numNodes = topology.nNodes;
+
+        for (int dest = 0; dest < numNodes; dest++) {
+            sp.makeTopologicalOrdering(dest);
+            int[] order = sp.topologicalOrdering;
+
+            // Base case for destination itself
+            shortestPathsCache[dest][dest] = new EdgeFlowVector(new int[0], new double[0]);
+
+            // Process nodes in topological order
+            for (int i_source = 0; i_source < numNodes; i_source++) {
+                int source = order[i_source];
+
+                // Edge cases
+                if (source == dest) continue;
+                if (sp.distance[source][dest] == Topology.INFINITE_DISTANCE) {
+                    shortestPathsCache[source][dest] = null;
+                    continue;
+                }
+
+                int k = sp.nSuccessors[dest][source];
+                if (k == 0) { // Should not happen as it is already handled above
+                    System.err.println("Error: No successors found for node " + source + " to destination " + dest);
+                    System.exit(0);
+                }
+                int[] succEdges = sp.successorEdges[dest][source];
+                int[] succNodes = sp.successorNodes[dest][source];
+                double fracShare = 1.0 / k;
+                Map<Integer, Double> fracOnEdgeMap = new HashMap<>();
+
+                for (int p = 0; p < k; p++) {
+                    int edgeId = succEdges[p];
+                    int nextNode = succNodes[p];
+
+                    fracOnEdgeMap.merge(edgeId, fracShare, Double::sum);
+
+                    if (nextNode == dest) continue;
+
+                    EdgeFlowVector nextVec = shortestPathsCache[nextNode][dest];
+                    if (nextVec == null) { // Should not happen unless there is a link with cost <= 0 or else there was an error in the topological ordering
+                        System.err.println("Error: No path from node " + nextNode + " to destination " + dest);
+                        System.exit(0);
+                    }
+                    int len = nextVec.edgeIds.length;
+                    for (int j = 0; j < len; j++) {
+                        int nextEdgeId = nextVec.edgeIds[j];
+                        double nextFrac = nextVec.frac[j];
+                        fracOnEdgeMap.merge(nextEdgeId, fracShare * nextFrac, Double::sum);
                     }
                 }
-            }
-            TMcopy[ret.getStart(k)][ret.getEnd(k)] = 0.0;
-        }
-        return ret;
-    }
-
-    private BadTM getWorstTM(ArrayList<int[]> paths) {
-        ArrayList<EdgeLoadInfo>[] loadOnEdge = new ArrayList[topology.nEdges];
-        for (int i = 0; i < topology.nEdges; i++) {
-            loadOnEdge[i] = new ArrayList<>();
-        }
-
-        for (int i = 0; i < paths.size(); i++) {
-            int[] path = paths.get(i);
-            EdgeLoadsLinkedList edgeLoads = root.getEdgeLoads(path);
-            for (EdgePair edgePair : edgeLoads) {
-                if (edgePair.getLoad() != 0) {
-                    int startNode = getStartNode(path);
-                    int endNode = getEndNode(path);
-                    EdgeLoadInfo elf = new EdgeLoadInfo(initialTM[startNode][endNode]*edgePair.getLoad(), startNode, endNode);
-                    loadOnEdge[edgePair.getKey()].add(elf);
+                // Convert Map to EdgeFlowVector
+                int size = fracOnEdgeMap.size();
+                int[] edgeIds = new int[size];
+                double[] fracs = new double[size];
+                int index = 0;
+                for (Map.Entry<Integer, Double> entry : fracOnEdgeMap.entrySet()) {
+                    edgeIds[index] = entry.getKey();
+                    fracs[index] = entry.getValue();
+                    index++;
                 }
+                shortestPathsCache[source][dest] = new EdgeFlowVector(edgeIds, fracs);
             }
         }
-        double max = 0.0;
-        int maxIndex = 0;
-        for (int i = 0; i < topology.nEdges; i++) {
-            double sum = 0;
-            for (EdgeLoadInfo elf : loadOnEdge[i]) {
-                sum += elf.load;
-            }
-            loadOnEdge[i].sort(Collections.reverseOrder());
-            for (int j = 0; j < loadOnEdge[i].size() && j < robustGamma; j++) {
-                sum += loadOnEdge[i].get(j).load;
-            }
-            double load = sum / topology.edgeCapacity[i];
-            if (load > max) {
-                max = load;
-                maxIndex = i;
-            }
-        }
-        if (max - currSol < PRECISION) { // If the newly created worst solution is not worse than the solution from the LP, we can stop
-            return lastWorstTM;
-        }
-        BadTM ret = new BadTM(min(robustGamma, loadOnEdge[maxIndex].size()));
-        for (int i = 0; i < min(robustGamma, loadOnEdge[maxIndex].size()); i++) {
-            ret.add(loadOnEdge[maxIndex].get(i).startNode, loadOnEdge[maxIndex].get(i).endNode, i);
-        }
-        return ret;
     }
 
     /**
-     *
-     * @param worseTM an array of the robustGamma indices of the demands which lead to the worst matrix
-     * @return true if the TM was added, false if it was already in the list
+     * Computes the fractional edge loads for a given path by extending it using shortestPathsCache.
+     * Path segments < nNodes are node IDs (use shortest path), >= nNodes are direct edge IDs.
+     * @param path the SR path
+     * @return map of edgeId -> fractional load
      */
-    private boolean addNewWorstTM(BadTM worseTM) {
-        worseTM.sort();
-        // Only test if last TM added is the same as the newly created worst one
-        if (lastWorstTM != null && lastWorstTM.equals(worseTM)) {
-            return false;
-        }
-        lastWorstTM = worseTM;
-        return true;
-    }
+    private Map<Integer, Double> computeEdgeLoadsForPath(int[] path) {
+        Map<Integer, Double> edgeLoads = new HashMap<>();
 
-    private double[][] initFirstRobustTM() {
-        BadTM worstTM = getInitialWorstTM();
-        addNewWorstTM(worstTM);
-        double[][] TMcopy = new double[initialTM.length][];
-        for (int i = 0; i < initialTM.length; i++) {
-            TMcopy[i] = initialTM[i].clone();
-        }
-        for (int i = 0; i < robustGamma; i++) {
-            TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)] = TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)] + robustDeviation * TMcopy[worstTM.getStart(i)][worstTM.getEnd(i)];
-        }
-        return TMcopy;
-    }
+        for (int i = 0; i < path.length - 1; i++) {
+            int currentSegment = path[i];
+            int nextSegment = path[i + 1];
 
-    private double iterativeIntegerLoop() {
-        currSol = solve();
-        while(addNewWorstTM(getWorstTM(getPaths()))) {
-            try {
-                addUMaxExpr(getGrbLinExprs(lastWorstTM));
-            } catch (GRBException e) {
-                throw new RuntimeException(e);
+            int fromNode = (currentSegment < topology.nNodes) ? currentSegment : topology.edgeDest[currentSegment - topology.nNodes];
+
+            if (nextSegment < topology.nNodes) {
+                // Next segment is a node - use shortest path from cache
+                int toNode = nextSegment;
+                EdgeFlowVector shortestPath = shortestPathsCache[fromNode][toNode];
+
+                if (shortestPath != null) {
+                    for (int j = 0; j < shortestPath.edgeIds.length; j++) {
+                        int edgeId = shortestPath.edgeIds[j];
+                        double frac = shortestPath.frac[j];
+                        edgeLoads.merge(edgeId, frac, Double::sum);
+                    }
+                }
+            } else {
+                // Next segment is a direct edge
+                int edgeId = nextSegment - topology.nNodes;
+                edgeLoads.merge(edgeId, 1.0, Double::sum);
             }
-            currSol = solve();
         }
-        return currSol;
+
+        return edgeLoads;
     }
+
+    private Map<NodePair, UnifiedDemand> buildUnifiedDemands() {
+        Map<NodePair, UnifiedDemand> unified = new HashMap<>();
+
+        for (int matrixIdx = 0; matrixIdx < demandMatrices.size(); matrixIdx++) {
+            Demands demands = demandMatrices.get(matrixIdx);
+            for (int demIdx = 0; demIdx < demands.nDemands; demIdx++) {
+                NodePair pair = new NodePair(demands.source[demIdx], demands.dest[demIdx]);
+
+                UnifiedDemand unifiedDem = unified.computeIfAbsent(pair,
+                        k -> new UnifiedDemand(demandMatrices.size()));
+
+                unifiedDem.amounts[matrixIdx] = demands.amount[demIdx];
+                unifiedDem.demandIndices[matrixIdx] = demIdx;
+            }
+        }
+
+        return unified;
+    }
+
 }
