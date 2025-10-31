@@ -16,25 +16,26 @@ import java.util.Map;
  */
 public class HeuristicSolver {
     Topology topology;
-    Demands[] demandMatrices; // Changed from single Demands to array
+    Demands[] demandMatrices;
     int maxSegments; // TODO use this
     long startTime;
 
     private final EdgeFlowVector[][] shortestPathsCache;
-    private final double[][] linkLoads; // Now 2D: [demandMatrixIndex][edgeIndex]
-    private final double[][] bestLinkLoads; // Now 2D: [demandMatrixIndex][edgeIndex]
+    private final double[][] linkLoads;
+    private final double[][] bestLinkLoads;
     private final int[][] currentSrPaths; // For now limited to 2-SR
     private final int[][] bestSrPaths; // For now limited to 2-SR
     private final int P_NORM = 36;
 
-    // New: Unified demand mapping - maps (source, dest) to demand info across all matrices
     private final Map<NodePair, UnifiedDemand> unifiedDemands;
     private final NodePair[] demandPairs; // Array for easy iteration
 
+    /* Edge-based selection data structures */
+    private final Map<Integer, java.util.Set<NodePair>> edgeToDemands; // Maps edgeId to demands using it
+    private final Map<NodePair, java.util.Set<Integer>> demandToEdges; // Maps demand to edges it uses
+
     /* Local variables for the local search */
-    // Choose one of these approaches:
-    double[] sumPowerP; // Option 1 & 2: Array for each demand matrix
-    // double sumPowerP; // Option 3: Single aggregate sum
+    double[] sumPowerP;
 
     // Configuration for objective function
     private static final ObjectiveType OBJECTIVE_TYPE = ObjectiveType.AGGREGATE_ALL;
@@ -45,15 +46,8 @@ public class HeuristicSolver {
         AGGREGATE_ALL           // minimize (∑∑util[i][e]^p)^(1/p)
     }
 
-    // Helper classes for unified demand handling
-    private static class NodePair {
-        final int source, dest;
-
-        NodePair(int source, int dest) {
-            this.source = source;
-            this.dest = dest;
-        }
-
+    // Helper class for unified demand handling
+    private record NodePair(int source, int dest) {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -61,13 +55,8 @@ public class HeuristicSolver {
             NodePair nodePair = (NodePair) o;
             return source == nodePair.source && dest == nodePair.dest;
         }
-
-        @Override
-        public int hashCode() {
-            return source * 31 + dest;
-        }
     }
-
+    // Helper class for unified demand handling
     private static class UnifiedDemand {
         final double[] amounts; // Amount for each demand matrix (0 if not present)
         final int[] demandIndices; // Original demand index in each matrix (-1 if not present)
@@ -91,12 +80,15 @@ public class HeuristicSolver {
         this.currentSrPaths = new int[topology.nNodes][topology.nNodes];
         this.bestSrPaths = new int[topology.nNodes][topology.nNodes];
         this.sumPowerP = new double[demandMatrices.length];
-        // For AGGREGATE_ALL approach, use: this.sumPowerP = 0.0;
         this.startTime = System.currentTimeMillis();
 
         // Build unified demand structure
         this.unifiedDemands = buildUnifiedDemands();
         this.demandPairs = unifiedDemands.keySet().toArray(new NodePair[0]);
+
+        // Initialize edge-to-demand tracking
+        this.edgeToDemands = new HashMap<>();
+        this.demandToEdges = new HashMap<>();
     }
 
     /**
@@ -117,7 +109,6 @@ public class HeuristicSolver {
                 unifiedDem.demandIndices[matrixIdx] = demIdx;
             }
         }
-
         return unified;
     }
 
@@ -166,6 +157,282 @@ public class HeuristicSolver {
         for (int matrixIdx = 0; matrixIdx < demandMatrices.length; matrixIdx++) {
             System.arraycopy(linkLoads[matrixIdx], 0, bestLinkLoads[matrixIdx], 0, topology.nEdges);
         }
+
+        /* Build edge-to-demand mappings */
+        buildEdgeToDemandMappings();
+    }
+
+    /**
+     * Builds mappings between edges and demands that use them
+     */
+    private void buildEdgeToDemandMappings() {
+        edgeToDemands.clear();
+        demandToEdges.clear();
+
+        for (NodePair pair : demandPairs) {
+            java.util.Set<Integer> edgesUsed = new java.util.HashSet<>();
+            int s = pair.source;
+            int t = pair.dest;
+            int intermediate = currentSrPaths[s][t];
+
+            // Collect all edges used by this demand
+            if (intermediate == s) { // Direct path
+                EdgeFlowVector spVec = shortestPathsCache[s][t];
+                if (spVec != null) {
+                    for (int edgeId : spVec.edgeIds) {
+                        edgesUsed.add(edgeId);
+                    }
+                }
+            } else if (intermediate != t) { // Two-segment path
+                EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+                EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+                if (spVec1 != null) {
+                    for (int edgeId : spVec1.edgeIds) {
+                        edgesUsed.add(edgeId);
+                    }
+                }
+                if (spVec2 != null) {
+                    for (int edgeId : spVec2.edgeIds) {
+                        edgesUsed.add(edgeId);
+                    }
+                }
+            }
+
+            // Update mappings
+            demandToEdges.put(pair, edgesUsed);
+            for (int edgeId : edgesUsed) {
+                edgeToDemands.computeIfAbsent(edgeId, k -> new java.util.HashSet<>()).add(pair);
+            }
+        }
+    }
+
+    /**
+     * Updates edge-to-demand mappings when a demand's path changes
+     */
+    private void updateEdgeToDemandMappings(NodePair pair, int oldIntermediate, int newIntermediate) {
+        int s = pair.source;
+        int t = pair.dest;
+
+        // Remove old edges
+        java.util.Set<Integer> oldEdges = demandToEdges.getOrDefault(pair, new java.util.HashSet<>());
+        for (int edgeId : oldEdges) {
+            java.util.Set<NodePair> demands = edgeToDemands.get(edgeId);
+            if (demands != null) {
+                demands.remove(pair);
+                if (demands.isEmpty()) {
+                    edgeToDemands.remove(edgeId);
+                }
+            }
+        }
+
+        // Add new edges
+        java.util.Set<Integer> newEdges = new java.util.HashSet<>();
+        if (newIntermediate == s) { // Direct path
+            EdgeFlowVector spVec = shortestPathsCache[s][t];
+            if (spVec != null) {
+                for (int edgeId : spVec.edgeIds) {
+                    newEdges.add(edgeId);
+                }
+            }
+        } else if (newIntermediate != t) { // Two-segment path
+            EdgeFlowVector spVec1 = shortestPathsCache[s][newIntermediate];
+            EdgeFlowVector spVec2 = shortestPathsCache[newIntermediate][t];
+            if (spVec1 != null) {
+                for (int edgeId : spVec1.edgeIds) {
+                    newEdges.add(edgeId);
+                }
+            }
+            if (spVec2 != null) {
+                for (int edgeId : spVec2.edgeIds) {
+                    newEdges.add(edgeId);
+                }
+            }
+        }
+
+        demandToEdges.put(pair, newEdges);
+        for (int edgeId : newEdges) {
+            edgeToDemands.computeIfAbsent(edgeId, k -> new java.util.HashSet<>()).add(pair);
+        }
+    }
+
+    /**
+     * Selects an edge with probability proportional to its aggregated utilization^power
+     */
+    private int selectEdgeByUtilization(java.util.Random rand) {
+        // Compute aggregated utilization for each edge (sum across all matrices)
+        double[] edgeUtilPower = new double[topology.nEdges];
+        double totalWeight = 0.0;
+        final double SELECTION_POWER = 2.0; // Quadratic bias towards high utilization
+
+        for (int e = 0; e < topology.nEdges; e++) {
+            double maxUtil = 0.0;
+            for (int matrixIdx = 0; matrixIdx < demandMatrices.length; matrixIdx++) {
+                double util = linkLoads[matrixIdx][e] / topology.edgeCapacity[e];
+                maxUtil = Math.max(maxUtil, util);
+            }
+            if (maxUtil > 0.0) {
+                edgeUtilPower[e] = Math.pow(maxUtil, SELECTION_POWER);
+                totalWeight += edgeUtilPower[e];
+            }
+        }
+
+        if (totalWeight == 0.0) {
+            // Fallback: uniform random selection
+            return rand.nextInt(topology.nEdges);
+        }
+
+        // Weighted random selection
+        double r = rand.nextDouble() * totalWeight;
+        double cumulative = 0.0;
+        for (int e = 0; e < topology.nEdges; e++) {
+            cumulative += edgeUtilPower[e];
+            if (cumulative >= r) {
+                return e;
+            }
+        }
+
+        return topology.nEdges - 1; // Should rarely reach here
+    }
+
+    /**
+     * Selects a demand from those using a given edge
+     */
+    private NodePair selectDemandFromEdge(int edgeId, java.util.Random rand) {
+        java.util.Set<NodePair> demandsUsingEdge = edgeToDemands.get(edgeId);
+        if (demandsUsingEdge == null || demandsUsingEdge.isEmpty()) {
+            // Fallback: random demand
+            return demandPairs[rand.nextInt(demandPairs.length)];
+        }
+
+        // Convert to array for random access
+        NodePair[] demandsArray = demandsUsingEdge.toArray(new NodePair[0]);
+        return demandsArray[rand.nextInt(demandsArray.length)];
+    }
+
+    /**
+     * Computes the total load this demand places on a specific edge
+     * when routed through the given intermediate node, considering ECMP fractions
+     */
+    private double computeLoadOnEdge(int s, int t, int intermediate,
+                                     int edgeId, UnifiedDemand unifiedDem) {
+        double totalLoad = 0.0;
+
+        // Sum demand across all matrices
+        for (int matrixIdx = 0; matrixIdx < demandMatrices.length; matrixIdx++) {
+            if (unifiedDem.amounts[matrixIdx] <= 0) continue;
+
+            double demand = unifiedDem.amounts[matrixIdx];
+            double fraction = 0.0;
+
+            if (intermediate == s) { // Direct path
+                EdgeFlowVector spVec = shortestPathsCache[s][t];
+                if (spVec != null) {
+                    for (int i = 0; i < spVec.edgeIds.length; i++) {
+                        if (spVec.edgeIds[i] == edgeId) {
+                            fraction = spVec.frac[i];
+                            break;
+                        }
+                    }
+                }
+            } else if (intermediate != t) { // Two-segment path
+                // Check first segment
+                EdgeFlowVector spVec1 = shortestPathsCache[s][intermediate];
+                if (spVec1 != null) {
+                    for (int i = 0; i < spVec1.edgeIds.length; i++) {
+                        if (spVec1.edgeIds[i] == edgeId) {
+                            fraction += spVec1.frac[i];
+                        }
+                    }
+                }
+                // Check second segment
+                EdgeFlowVector spVec2 = shortestPathsCache[intermediate][t];
+                if (spVec2 != null) {
+                    for (int i = 0; i < spVec2.edgeIds.length; i++) {
+                        if (spVec2.edgeIds[i] == edgeId) {
+                            fraction += spVec2.frac[i];
+                        }
+                    }
+                }
+            }
+
+            totalLoad += demand * fraction;
+        }
+
+        return totalLoad;
+    }
+
+    /**
+     * Selects an intermediate node weighted by load reduction on congested edge.
+     * Uses candidate sampling to reduce computational cost.
+     * Considers actual ECMP load fractions, not just binary edge usage.
+     */
+    private int selectIntermediateNode(int s, int t, int congestedEdge,
+                                       UnifiedDemand unifiedDem,
+                                       int currentIntermediate,
+                                       java.util.Random rand) {
+        // Compute current load on congested edge
+        double currentLoad = computeLoadOnEdge(s, t, currentIntermediate, congestedEdge, unifiedDem);
+
+        // Sample candidates to evaluate (trade-off between quality and speed)
+        int maxCandidates = Math.min(topology.nNodes / 4, 20); // Sample 25% or max 20 nodes
+        maxCandidates = Math.max(maxCandidates, 5); // At least 5 candidates
+        java.util.List<Integer> candidates = new java.util.ArrayList<>();
+
+        // Always include the source (direct path) as a candidate
+        if (s != t && s != currentIntermediate) {
+            candidates.add(s);
+        }
+
+        // Sample additional random candidates
+        java.util.Set<Integer> sampledSet = new java.util.HashSet<>(candidates);
+        int attempts = 0;
+        while (candidates.size() < maxCandidates && attempts < maxCandidates * 3) {
+            int v = rand.nextInt(topology.nNodes);
+            if (v != t && v != currentIntermediate && sampledSet.add(v)) {
+                candidates.add(v);
+            }
+            attempts++;
+        }
+
+        if (candidates.isEmpty()) {
+            // Fallback: random node (shouldn't happen normally)
+            int v = rand.nextInt(topology.nNodes);
+            while (v == t || v == currentIntermediate) {
+                v = rand.nextInt(topology.nNodes);
+            }
+            return v;
+        }
+
+        // Compute load reduction for each candidate with exponential weighting
+        java.util.List<Double> weights = new java.util.ArrayList<>();
+        double totalWeight = 0.0;
+        final double REDUCTION_SENSITIVITY = 5.0; // Higher = more preference for load reduction
+
+        for (int v : candidates) {
+            double newLoad = computeLoadOnEdge(s, t, v, congestedEdge, unifiedDem);
+            double reduction = currentLoad - newLoad;
+
+            // Exponential weighting: strongly prefer higher reductions
+            // But still allow exploration of non-improving moves (for SA)
+            double weight = Math.exp(reduction * REDUCTION_SENSITIVITY);
+            weights.add(weight);
+            totalWeight += weight;
+        }
+
+        // Weighted random selection
+        if (totalWeight > 0.0) {
+            double r = rand.nextDouble() * totalWeight;
+            double cumulative = 0.0;
+            for (int i = 0; i < candidates.size(); i++) {
+                cumulative += weights.get(i);
+                if (cumulative >= r) {
+                    return candidates.get(i);
+                }
+            }
+        }
+
+        // Fallback: uniform random from candidates
+        return candidates.get(rand.nextInt(candidates.size()));
     }
 
     private void simulatedAnnealing(long endTime) throws IntermediateNodeIsEndException {
@@ -173,7 +440,7 @@ public class HeuristicSolver {
         double temperature = initialTemperature;
         double coolingRate = 0.98;
         double minTemperature = initialTemperature * 1e-5;
-        int iterationsPerTemp = Math.max(100, demandPairs.length * topology.nNodes / 256);
+        int iterationsPerTemp = Math.max(100, demandPairs.length * topology.nNodes / 4096);
 
         double bestUMax = computeCurrentUMax();
         double currentObjectiveValue = computeObjFctSumPowerP();
@@ -182,22 +449,23 @@ public class HeuristicSolver {
 
         while (System.currentTimeMillis() < endTime && temperature > minTemperature) {
             for (int iter = 0; iter < iterationsPerTemp; iter++) {
-                /* Randomly select a unified demand */
-                NodePair selectedPair = demandPairs[rand.nextInt(demandPairs.length)];
+                /* Select a congested edge with probability proportional to utilization */
+                int congestedEdge = selectEdgeByUtilization(rand);
+
+                /* Select a demand using this edge */
+                NodePair selectedPair = selectDemandFromEdge(congestedEdge, rand);
                 int s = selectedPair.source;
                 int t = selectedPair.dest;
                 UnifiedDemand unifiedDem = unifiedDemands.get(selectedPair);
 
-                /* Randomly select a new intermediate node */
-                int newIntermediate = rand.nextInt(topology.nNodes);
-                while (newIntermediate == currentSrPaths[s][t] || newIntermediate == t) {
-                    newIntermediate = rand.nextInt(topology.nNodes);
-                }
+                /* Select a new intermediate node, preferring those that reduce load on congested edge */
+                int oldIntermediate = currentSrPaths[s][t];
+                int newIntermediate = selectIntermediateNode(s, t, congestedEdge, unifiedDem, oldIntermediate, rand);
 
                 /* Load the new solution for all matrices where this demand exists */
                 for (int matrixIdx = 0; matrixIdx < demandMatrices.length; matrixIdx++) {
                     if (unifiedDem.amounts[matrixIdx] > 0) {
-                        removeLoad(s, currentSrPaths[s][t], t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
+                        removeLoad(s, oldIntermediate, t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
                         addLoad(s, newIntermediate, t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
                     }
                 }
@@ -210,6 +478,9 @@ public class HeuristicSolver {
                     /* Accept the new solution */
                     currentSrPaths[s][t] = newIntermediate;
                     currentObjectiveValue = newObjectiveValue;
+
+                    /* Update edge-to-demand mappings */
+                    updateEdgeToDemandMappings(selectedPair, oldIntermediate, newIntermediate);
 
                     /* Update the best solution if needed */
                     if (currentObjectiveValue < bestObjectiveValue) {
@@ -232,9 +503,10 @@ public class HeuristicSolver {
                     for (int matrixIdx = 0; matrixIdx < demandMatrices.length; matrixIdx++) {
                         if (unifiedDem.amounts[matrixIdx] > 0) {
                             removeLoad(s, newIntermediate, t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
-                            addLoad(s, currentSrPaths[s][t], t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
+                            addLoad(s, oldIntermediate, t, unifiedDem.amounts[matrixIdx], matrixIdx, true);
                         }
                     }
+                    /* Edge-to-demand mappings remain unchanged since we rejected */
                 }
             }
             temperature *= coolingRate;
