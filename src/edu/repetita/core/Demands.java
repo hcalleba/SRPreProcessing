@@ -47,6 +47,22 @@ public class Demands {
         this.amount = amount;
     }
 
+    public Demands(Demands other) {
+        this.nDemands = other.nDemands;
+        this.label = Arrays.copyOf(other.label, other.nDemands);
+        this.source = Arrays.copyOf(other.source, other.nDemands);
+        this.dest = Arrays.copyOf(other.dest, other.nDemands);
+        this.amount = Arrays.copyOf(other.amount, other.nDemands);
+    }
+
+    public Demands(int nDemands) {
+        this.nDemands = nDemands;
+        this.label = new String[nDemands];
+        this.source = new int[nDemands];
+        this.dest = new int[nDemands];
+        this.amount = new double[nDemands];
+    }
+
     /**
      * Gives the demands as a matrix, thus merging demands with the same (source, destination) pair.
      *
