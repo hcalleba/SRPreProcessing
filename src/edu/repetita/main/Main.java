@@ -24,7 +24,7 @@ public class Main {
         ArrayList<String> descriptions = new ArrayList<>();
 
         options.addAll(Arrays.asList("h","doc","scenario","graph","demands","t","outpaths","inpaths",
-                "out","verbose"));
+                "out","verbose","numAdversarialMatrices","maxPerturbedDemands","perturbationPercent"));
 
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",
@@ -40,7 +40,10 @@ public class Main {
                 "name of the file to which resulting SR-paths should be written to (or non-dominated paths with preprocess scenario)",
                 "name of the file to load SR-paths from (useful with loafFromFile scenario)",
                 "name of the file collecting all the information (standard output by default)",
-                "level of debugging (default 0, only results reported)"
+                "level of debugging (default 0, only results reported)",
+                "number of adversarial matrices to generate (default 10)",
+                "maximum number of demands that can be perturbed per matrix (default 5)",
+                "perturbation percentage as decimal (default 0.20 for 20%)"
         ));
 
         return "All options:\n" + RepetitaWriter.formatAsListTwoColumns(options, descriptions, "  -");
@@ -106,6 +109,11 @@ public class Main {
         int verboseLevel = 0;
         boolean help = false;
 
+        // GRP solver parameters
+        int numAdversarialMatrices = 10;
+        int maxPerturbedDemands = 5;
+        double perturbationPercent = 0.20;
+
         // parse command line arguments
         int i = 0;
         while (i < args.length) {
@@ -144,6 +152,18 @@ public class Main {
                     RepetitaWriter.setVerbose(verboseLevel);
                     break;
 
+                case "-numAdversarialMatrices":
+                    numAdversarialMatrices = Integer.parseInt(args[++i]);
+                    break;
+
+                case "-maxPerturbedDemands":
+                    maxPerturbedDemands = Integer.parseInt(args[++i]);
+                    break;
+
+                case "-perturbationPercent":
+                    perturbationPercent = Double.parseDouble(args[++i]);
+                    break;
+
                 default:
                     printHelp("Unknown option " + args[i]);
             }
@@ -160,7 +180,10 @@ public class Main {
         setting.setTopologyFilename(graphFilename);
         setting.setDemandsFilename(demandsFilename);
 
-        Solver solver = new GRP();
+        GRP solver = new GRP();
+        solver.setNumAdversarialMatrices(numAdversarialMatrices);
+        solver.setMaxPerturbedDemands(maxPerturbedDemands);
+        solver.setPerturbationPercent(perturbationPercent);
         solver.solve(setting, (long) timeLimit * 1000);
     }
 }

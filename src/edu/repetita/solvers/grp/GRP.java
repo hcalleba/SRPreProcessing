@@ -14,10 +14,33 @@ public class GRP extends Solver {
     private long solveTime = 0;
     private long maxTime;
 
-    // Paramètres pour la génération adversariale
-    private static final int NUM_ADVERSARIAL_MATRICES = 10;
-    private static final int MAX_PERTURBED_DEMANDS = 5; // X
-    private static final double PERTURBATION_PERCENT = 0.20; // Y (10%)
+    // Paramètres pour la génération adversariale (configurables)
+    private int numAdversarialMatrices = 10;
+    private int maxPerturbedDemands = 5; // X
+    private double perturbationPercent = 0.20; // Y (20%)
+
+    final private double TARGETMLU = 1.0;
+
+    /**
+     * Set the number of adversarial matrices to generate
+     */
+    public void setNumAdversarialMatrices(int num) {
+        this.numAdversarialMatrices = num;
+    }
+
+    /**
+     * Set the maximum number of demands that can be perturbed per matrix
+     */
+    public void setMaxPerturbedDemands(int max) {
+        this.maxPerturbedDemands = max;
+    }
+
+    /**
+     * Set the perturbation percentage (e.g., 0.20 for 20%)
+     */
+    public void setPerturbationPercent(double percent) {
+        this.perturbationPercent = percent;
+    }
 
     @Override
     protected void setObjective() {
@@ -49,13 +72,13 @@ public class GRP extends Solver {
         }
 
         // Scaler la matrice de base à MLU = 1.0
-        // Demands baseMatrix = scaleMatrixToMLU(topology, demands.get(0), 1.0); // TODO ajouter ?
-        Demands baseMatrix = demands.getFirst();
+        Demands baseMatrix = scaleMatrixToMLU(topology, demands.getFirst(), TARGETMLU);
+        // Demands baseMatrix = demands.getFirst();
 
         // Générer les matrices adversariales
         List<AdversarialMatrix> adversarialMatrices = generateAdversarialMatrices(
-                topology, baseMatrix, NUM_ADVERSARIAL_MATRICES,
-                MAX_PERTURBED_DEMANDS, PERTURBATION_PERCENT
+                topology, baseMatrix, numAdversarialMatrices,
+                maxPerturbedDemands, perturbationPercent
         );
 
         // Afficher les résultats
@@ -70,12 +93,18 @@ public class GRP extends Solver {
     private static class AdversarialMatrix {
         Demands matrix;
         Set<Integer> perturbedDemandIndices;
-        double mlu;
+        double nonOptimizedMLU; // MLU with old routing (non re-optimized)
+        double cumulativeOptimizedMLU; // MLU after re-optimizing for all matrices
+        double individualMLU; // MLU if optimized alone
+        double mluWithCumulativeRouting; // MLU of this matrix alone with cumulative routing
 
-        AdversarialMatrix(Demands matrix, Set<Integer> perturbedIndices, double mlu) {
+        AdversarialMatrix(Demands matrix, Set<Integer> perturbedIndices, double nonOptimizedMLU) {
             this.matrix = matrix;
             this.perturbedDemandIndices = perturbedIndices;
-            this.mlu = mlu;
+            this.nonOptimizedMLU = nonOptimizedMLU;
+            this.cumulativeOptimizedMLU = 0.0;
+            this.individualMLU = 0.0;
+            this.mluWithCumulativeRouting = 0.0;
         }
     }
 
@@ -114,8 +143,7 @@ public class GRP extends Solver {
             scaledMatrix.amount[i] = Math.floor(originalMatrix.amount[i] * scaleFactor);
         }
 
-        System.out.println("Scaled matrix from MLU " + currentMLU + " to " + targetMLU +
-                " (scale factor: " + scaleFactor + ")");
+        System.out.println("SCALE_FACTOR: " + scaleFactor);
 
         return scaledMatrix;
     }
@@ -132,15 +160,14 @@ public class GRP extends Solver {
         allMatrices.add(baseMatrix);
 
         System.out.println("\n=== Generating Adversarial Matrices ===");
-        System.out.println("Base matrix MLU (should be ~1.0): " + solveRouting(topology, Collections.singletonList(baseMatrix), null)); // TODO remove
+        System.out.println("Base matrix MLU (should be ~1.0): " + solveRouting(topology, Collections.singletonList(baseMatrix), null));
+
+        // Pré-calculer le routage pour la matrice de base
+        Routing currentRouting = new Routing(topology.nNodes, topology.nEdges);
+        double currentMLU = solveRouting(topology, allMatrices, currentRouting);
 
         for (int i = 0; i < numMatrices; i++) {
             System.out.println("\n--- Generating adversarial matrix " + (i + 1) + " ---");
-
-            // Résoudre le routage sur toutes les matrices actuelles
-            Routing currentRouting = new Routing(topology.nNodes, topology.nEdges);
-            double currentMLU = solveRouting(topology, allMatrices, currentRouting);
-
             System.out.println("Current combined MLU: " + currentMLU);
 
             // Générer la pire matrice étant donné ce routage
@@ -151,8 +178,32 @@ public class GRP extends Solver {
             adversarialMatrices.add(worstMatrix);
             allMatrices.add(worstMatrix.matrix);
 
-            System.out.println("Generated matrix with MLU: " + worstMatrix.mlu);
+            // Ré-optimiser le routage avec toutes les matrices (incluant la nouvelle)
+            currentRouting = new Routing(topology.nNodes, topology.nEdges);
+            double cumulativeOptimizedMLU = solveRouting(topology, allMatrices, currentRouting);
+            worstMatrix.cumulativeOptimizedMLU = cumulativeOptimizedMLU;
+
+            // Calculer le MLU si on optimisait seulement cette matrice
+            double individualMLU = solveRouting(topology, Collections.singletonList(worstMatrix.matrix), null);
+            worstMatrix.individualMLU = individualMLU;
+
+            System.out.println("Non-optimized MLU (old routing): " + worstMatrix.nonOptimizedMLU);
+            System.out.println("Cumulative optimized MLU (all matrices): " + cumulativeOptimizedMLU);
+            System.out.println("Individual MLU (this matrix alone): " + individualMLU);
             System.out.println("Perturbed " + worstMatrix.perturbedDemandIndices.size() + " demands");
+
+            // Mettre à jour currentMLU pour la prochaine itération
+            currentMLU = cumulativeOptimizedMLU;
+        }
+
+        // Le currentRouting est déjà optimisé pour toutes les matrices (base + adversariales)
+        // Calculer le MLU de chaque matrice avec ce routage final
+        System.out.println("\n--- Computing individual MLUs with final routing ---");
+        System.out.println("Final cumulative MLU: " + currentMLU);
+        for (int i = 0; i < adversarialMatrices.size(); i++) {
+            AdversarialMatrix am = adversarialMatrices.get(i);
+            am.mluWithCumulativeRouting = calculateMLU(topology, am.matrix, currentRouting);
+            System.out.println("Matrix " + (i + 1) + " MLU with final routing: " + am.mluWithCumulativeRouting);
         }
 
         return adversarialMatrices;
@@ -495,13 +546,36 @@ public class GRP extends Solver {
      */
     private void printAdversarialResults(List<AdversarialMatrix> matrices) {
         System.out.println("\n=== Adversarial Matrix Generation Results ===");
-        System.out.println(String.format("%-10s %-15s %-20s", "Matrix", "MLU", "Perturbed Demands"));
-        System.out.println("-".repeat(50));
 
         for (int i = 0; i < matrices.size(); i++) {
             AdversarialMatrix am = matrices.get(i);
-            System.out.println(String.format("%-10s %-15.4f %-20s",
-                    "M_" + (i+1), am.mlu, am.perturbedDemandIndices.size()));
+            System.out.println("MATRIX: " + (i + 1));
+            System.out.println("  NON_OPTIMIZED_MLU: " + am.nonOptimizedMLU);
+            System.out.println("  CUMULATIVE_OPTIMIZED_MLU: " + am.cumulativeOptimizedMLU);
+            System.out.println("  MLU_WITH_CUMULATIVE_ROUTING: " + am.mluWithCumulativeRouting);
+            System.out.println("  INDIVIDUAL_MLU: " + am.individualMLU);
+            System.out.println("  NUM_PERTURBED: " + am.perturbedDemandIndices.size());
+
+            // Convert set to sorted list for consistent output
+            List<Integer> sortedIds = new ArrayList<>(am.perturbedDemandIndices);
+            Collections.sort(sortedIds);
+            System.out.print("  PERTURBED_DEMAND_IDS: ");
+            for (int j = 0; j < sortedIds.size(); j++) {
+                if (j > 0) System.out.print(",");
+                System.out.print(sortedIds.get(j));
+            }
+            System.out.println();
+        }
+
+        System.out.println("\n=== Summary ===");
+        System.out.println(String.format("%-10s %-20s %-25s %-25s %-20s %-15s",
+                "Matrix", "Non-Opt MLU", "Cumulative-Opt MLU", "MLU w/ Cum. Routing", "Individual MLU", "Num Perturbed"));
+        System.out.println("-".repeat(120));
+        for (int i = 0; i < matrices.size(); i++) {
+            AdversarialMatrix am = matrices.get(i);
+            System.out.println(String.format("%-10s %-20.6f %-25.6f %-25.6f %-20.6f %-15d",
+                    "M_" + (i+1), am.nonOptimizedMLU, am.cumulativeOptimizedMLU, am.mluWithCumulativeRouting,
+                    am.individualMLU, am.perturbedDemandIndices.size()));
         }
     }
 
