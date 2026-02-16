@@ -1,0 +1,10 @@
+# batch1:
+    - results from when using the relaxation of the problem.
+    - perturbation is 20% of the initial demand.
+    - 1 : 10 demands are allowed to change
+    - 2 : N demands are allowed to change
+    - 3 : 10% of the demands are allowed to change
+    - 4 : 2*N of the demands are allowed to change
+    - 5 : 2*N of the demands are allowed to change, but only demands contributing to 80% of the total demand are allowed to change.
+
+# batch 2:

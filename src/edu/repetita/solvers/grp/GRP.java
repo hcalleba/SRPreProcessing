@@ -16,8 +16,10 @@ public class GRP extends Solver {
 
     // Paramètres pour la génération adversariale (configurables)
     private int numAdversarialMatrices = 10;
-    private int maxPerturbedDemands = 5; // X
-    private double perturbationPercent = 0.20; // Y (20%)
+    private int maxPerturbedDemands = 5;
+    private double perturbationPercent = 0.20;
+    private double demandLoadThreshold = 0.80; // Only perturb demands contributing to top X% of total load
+    private boolean useDemandLoadThreshold = true; // Enable/disable the threshold filtering
 
     final private double TARGETMLU = 1.0;
 
@@ -40,6 +42,21 @@ public class GRP extends Solver {
      */
     public void setPerturbationPercent(double percent) {
         this.perturbationPercent = percent;
+    }
+
+    /**
+     * Set the demand load threshold (e.g., 0.75 for top 75% of load)
+     * Only demands contributing to this percentage of total network load can be perturbed
+     */
+    public void setDemandLoadThreshold(double threshold) {
+        this.demandLoadThreshold = threshold;
+    }
+
+    /**
+     * Enable or disable the demand load threshold filtering
+     */
+    public void setUseDemandLoadThreshold(boolean use) {
+        this.useDemandLoadThreshold = use;
     }
 
     @Override
@@ -162,6 +179,15 @@ public class GRP extends Solver {
         System.out.println("\n=== Generating Adversarial Matrices ===");
         System.out.println("Base matrix MLU (should be ~1.0): " + solveRouting(topology, Collections.singletonList(baseMatrix), null));
 
+        // Compute perturbable demands based on load threshold (if enabled)
+        Set<Integer> perturbableDemands = null;
+        if (useDemandLoadThreshold) {
+            System.out.println("\n--- Computing perturbable demands based on load threshold ---");
+            perturbableDemands = computePerturbableDemands(baseMatrix, demandLoadThreshold);
+        } else {
+            System.out.println("\n--- Demand load threshold filtering disabled (all demands can be perturbed) ---");
+        }
+
         // Pré-calculer le routage pour la matrice de base
         Routing currentRouting = new Routing(topology.nNodes, topology.nEdges);
         double currentMLU = solveRouting(topology, allMatrices, currentRouting);
@@ -172,7 +198,7 @@ public class GRP extends Solver {
 
             // Générer la pire matrice étant donné ce routage
             AdversarialMatrix worstMatrix = generateWorstMatrix(
-                    topology, baseMatrix, currentRouting, maxPerturbedDemands, perturbationPercent
+                    topology, baseMatrix, currentRouting, maxPerturbedDemands, perturbationPercent, perturbableDemands
             );
 
             adversarialMatrices.add(worstMatrix);
@@ -210,11 +236,64 @@ public class GRP extends Solver {
     }
 
     /**
+     * Computes the set of demand indices that are allowed to be perturbed
+     * based on the demand load threshold. Only the largest demands that contribute
+     * to the specified percentage of total network load are allowed.
+     */
+    private Set<Integer> computePerturbableDemands(Demands baseMatrix, double loadThreshold) {
+        // Calculate total load
+        double totalLoad = 0.0;
+        for (int i = 0; i < baseMatrix.nDemands; i++) {
+            totalLoad += baseMatrix.amount[i];
+        }
+
+        // Create list of demand indices sorted by load (descending)
+        List<DemandLoad> demandLoads = new ArrayList<>();
+        for (int i = 0; i < baseMatrix.nDemands; i++) {
+            demandLoads.add(new DemandLoad(i, baseMatrix.amount[i]));
+        }
+        demandLoads.sort((a, b) -> Double.compare(b.load, a.load));
+
+        // Select demands until we reach the threshold percentage of total load
+        double targetLoad = totalLoad * loadThreshold;
+        double cumulativeLoad = 0.0;
+        Set<Integer> perturbableDemands = new HashSet<>();
+
+        for (DemandLoad dl : demandLoads) {
+            perturbableDemands.add(dl.demandIdx);
+            cumulativeLoad += dl.load;
+            if (cumulativeLoad >= targetLoad) {
+                break;
+            }
+        }
+
+        System.out.println("Total network load: " + totalLoad);
+        System.out.println("Target load threshold (" + (loadThreshold * 100) + "%): " + targetLoad);
+        System.out.println("Cumulative load of selected demands: " + cumulativeLoad);
+        System.out.println("Number of perturbable demands: " + perturbableDemands.size() + "/" + baseMatrix.nDemands);
+
+        return perturbableDemands;
+    }
+
+    /**
+     * Helper class to store demand index and its load
+     */
+    private static class DemandLoad {
+        int demandIdx;
+        double load;
+
+        DemandLoad(int demandIdx, double load) {
+            this.demandIdx = demandIdx;
+            this.load = load;
+        }
+    }
+
+    /**
      * Génère la pire matrice de demandes étant donné un routage fixé
      */
     private AdversarialMatrix generateWorstMatrix(
             Topology topology, Demands baseMatrix, Routing routing,
-            int maxPerturbedDemands, double perturbationPercent) {
+            int maxPerturbedDemands, double perturbationPercent, Set<Integer> perturbableDemands) {
 
         int budgetRestant = maxPerturbedDemands;
         Set<Integer> perturbedDemands = new HashSet<>();
@@ -225,7 +304,7 @@ public class GRP extends Solver {
         while (budgetRestant > 0) {
             // Trouver l'arc qui donnera le pire MLU
             EdgeWorstCase worstCase = findWorstEdge(
-                    topology, baseMatrix, routing, perturbedDemands, perturbationPercent, budgetRestant
+                    topology, baseMatrix, routing, perturbedDemands, perturbationPercent, budgetRestant, perturbableDemands
             );
 
             if (worstCase == null || worstCase.demands.isEmpty()) {
@@ -273,7 +352,8 @@ public class GRP extends Solver {
      */
     private EdgeWorstCase findWorstEdge(
             Topology topology, Demands baseMatrix, Routing routing,
-            Set<Integer> alreadyPerturbed, double perturbationPercent, int budgetRestant) {
+            Set<Integer> alreadyPerturbed, double perturbationPercent, int budgetRestant,
+            Set<Integer> perturbableDemands) {
 
         EdgeWorstCase worstCase = null;
         double worstMLU = 0.0;
@@ -284,6 +364,8 @@ public class GRP extends Solver {
 
             for (int demandIdx = 0; demandIdx < baseMatrix.nDemands; demandIdx++) {
                 if (alreadyPerturbed.contains(demandIdx)) continue;
+                // Skip demands that are not in the perturbable set (if filtering is enabled)
+                if (perturbableDemands != null && !perturbableDemands.contains(demandIdx)) continue;
 
                 int src = baseMatrix.source[demandIdx];
                 int dst = baseMatrix.dest[demandIdx];
