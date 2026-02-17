@@ -2,6 +2,8 @@ package edu.repetita.io;
 
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
+import edu.repetita.solvers.sr.SRPath;
+import edu.repetita.solvers.sr.SRPathSet;
 import edu.repetita.utils.datastructures.Conversions;
 
 import java.io.IOException;
@@ -189,4 +191,88 @@ final public class RepetitaParser {
 
         return solverFeatures;
     }
+
+    /**
+     * Parses an SR paths file.
+     *
+     * Each line in the file represents a single SR path in the format:
+     * [source, seg1, seg2, ..., segN]
+     *
+     * Where:
+     * - source is the source node (0 to nNodes-1)
+     * - seg_i is a segment which can be:
+     *   - A node segment if value is in [0, nNodes-1]
+     *   - An adjacency (edge) segment if value >= nNodes (edge index = value - nNodes)
+     *
+     * @param filename The path to the .paths file
+     * @param topology The topology (needed to resolve edge destinations and determine nNodes)
+     * @return An SRPathSet containing all parsed paths
+     * @throws IOException if there is some problem when reading the file
+     */
+    public static SRPathSet parseSRPaths(String filename, Topology topology) throws IOException {
+        return parseSRPaths(filename, topology, false);
+    }
+
+    /**
+     * Parses an SR paths file with optional filtering of adjacency segments.
+     *
+     * @param filename The path to the .paths file
+     * @param topology The topology (needed to resolve edge destinations and determine nNodes)
+     * @param excludeAdjacencyPaths If true, paths using adjacency (edge) segments are excluded
+     * @return An SRPathSet containing parsed paths
+     * @throws IOException if there is some problem when reading the file
+     */
+    public static SRPathSet parseSRPaths(String filename, Topology topology, boolean excludeAdjacencyPaths) throws IOException {
+        SRPathSet pathSet = new SRPathSet(topology);
+        int nNodes = topology.nNodes;
+
+        try (Stream<String> lineStream = Files.lines(Paths.get(filename))) {
+            Iterator<String> lines = lineStream.iterator();
+            int lineNumber = 0;
+
+            while (lines.hasNext()) {
+                lineNumber++;
+                String line = lines.next().trim();
+
+                // Skip empty lines
+                if (line.isEmpty()) continue;
+
+                // Parse the path: [n1, n2, n3, ...]
+                // Remove brackets and split by comma
+                if (!line.startsWith("[") || !line.endsWith("]")) {
+                    System.err.println("Warning: Invalid path format at line " + lineNumber + ": " + line);
+                    continue;
+                }
+
+                String content = line.substring(1, line.length() - 1).trim();
+                if (content.isEmpty()) {
+                    System.err.println("Warning: Empty path at line " + lineNumber);
+                    continue;
+                }
+
+                String[] parts = content.split(",");
+                int[] rawPath = new int[parts.length];
+
+                try {
+                    for (int i = 0; i < parts.length; i++) {
+                        rawPath[i] = Integer.parseInt(parts[i].trim());
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("Warning: Invalid number in path at line " + lineNumber + ": " + line);
+                    continue;
+                }
+
+                // Create the SR path
+                SRPath path = new SRPath(rawPath, nNodes, topology);
+
+                // Add to set (optionally filtering adjacency paths)
+                if (!excludeAdjacencyPaths || !path.usesAdjacencySegments()) {
+                    pathSet.addPath(path);
+                }
+            }
+        }
+
+        return pathSet;
+    }
 }
+

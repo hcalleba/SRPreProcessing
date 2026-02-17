@@ -1,11 +1,10 @@
 package edu.repetita.main;
 
 import edu.repetita.core.Setting;
-import edu.repetita.core.Solver;
 import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
-import edu.repetita.solvers.grp.GRP;
+import edu.repetita.solvers.mcf.MCF;
 
 import java.util.*;
 
@@ -180,10 +179,17 @@ public class Main {
         setting.setTopologyFilename(graphFilename);
         setting.setDemandsFilename(demandsFilename);
 
-        GRP solver = new GRP();
+        MCF solver = new MCF();
         solver.setNumAdversarialMatrices(numAdversarialMatrices);
         solver.setMaxPerturbedDemands(maxPerturbedDemands);
         solver.setPerturbationPercent(perturbationPercent);
         solver.solve(setting, (long) timeLimit * 1000);
+
+//        SRTEP solver = new SRTE();
+//        solver.setSRPathsFile("srpaths/2-SR/Aarnet.paths");
+//        solver.setExcludeAdjacencyPaths(false);
+//        solver.setNumAdversarialMatrices(10);
+//        solver.solve(setting, 60000); // 60 seconds timeout
+
     }
 }
