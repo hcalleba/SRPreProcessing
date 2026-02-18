@@ -34,11 +34,11 @@ public class SRTEP extends Solver {
     private long maxTime;
 
     // Parameters for adversarial matrix generation (configurable)
-    private int numAdversarialMatrices = 10;
-    private int maxPerturbedDemands = 5;
-    private double perturbationPercent = 0.20;
+    private int numAdversarialMatrices;
+    private int maxPerturbedDemands;
+    private double perturbationPercent;
     private double demandLoadThreshold = 0.80;
-    private boolean useDemandLoadThreshold = true;
+    private boolean useDemandLoadThreshold = false;
 
     private final double TARGETMLU = 1.0;
 
@@ -50,9 +50,12 @@ public class SRTEP extends Solver {
     private SRPathSet pathSet = null;
     private ShortestPaths shortestPaths = null;
 
-    // Cache for computed edge usage (on-the-fly computation with memoization)
-    // Key: path index in the pathSet, Value: edge usage array
-    private Map<SRPath, double[]> edgeUsageCache = null;
+    // Precomputed edge usage for all paths
+    // edgeUsage[pathIndex][edgeIndex] = fraction of path's flow that uses edge
+    private double[][] edgeUsage = null;
+
+    // List of all paths (for indexing into edgeUsage)
+    private List<SRPath> allPaths = null;
 
     /**
      * Set the file containing SR paths
@@ -149,12 +152,14 @@ public class SRTEP extends Solver {
         // Initialize shortest paths for ECMP computation
         shortestPaths = new ShortestPaths(topology);
 
-        // Initialize the edge usage cache
-        edgeUsageCache = new HashMap<>();
+        // Precompute edge usage for all paths
+        allPaths = excludeAdjacencyPaths ? pathSet.getAllPathsWithoutAdjacency() : pathSet.getAllPaths();
+        precomputeEdgeUsage(topology);
 
         // Scale the base matrix to MLU = TARGETMLU using MCF (not SRTEP)
         // This ensures consistent scaling across different routing schemes
         Demands baseMatrix = scaleMatrixToMLUUsingMCF(topology, demands.getFirst(), TARGETMLU);
+        //Demands baseMatrix = demands.getFirst();
 
         // Generate adversarial matrices
         List<AdversarialMatrix> adversarialMatrices = generateAdversarialMatrices(
@@ -303,23 +308,28 @@ public class SRTEP extends Solver {
     }
 
     /**
-     * Gets the edge usage for a path, computing it on-the-fly if not cached.
-     * This avoids precomputing edge usage for all paths which can be memory-intensive.
+     * Precomputes edge usage for all paths in allPaths.
+     * Populates the edgeUsage array.
      */
-    private double[] getPathEdgeUsage(SRPath path, Topology topology) {
-        // Check cache first
-        double[] cached = edgeUsageCache.get(path);
-        if (cached != null) {
-            return cached;
+    private void precomputeEdgeUsage(Topology topology) {
+        int nPaths = allPaths.size();
+        int nEdges = topology.nEdges;
+
+        edgeUsage = new double[nPaths][nEdges];
+
+        for (int p = 0; p < nPaths; p++) {
+            SRPath path = allPaths.get(p);
+            edgeUsage[p] = computePathEdgeUsage(path, topology);
         }
 
-        // Compute edge usage for this path
-        double[] edgeUsage = computePathEdgeUsage(path, topology);
+        System.out.println("Precomputed edge usage for " + nPaths + " paths");
+    }
 
-        // Cache the result
-        edgeUsageCache.put(path, edgeUsage);
-
-        return edgeUsage;
+    /**
+     * Gets the edge usage for a path by its index.
+     */
+    private double[] getPathEdgeUsage(int pathIndex) {
+        return edgeUsage[pathIndex];
     }
 
     /**
@@ -373,9 +383,11 @@ public class SRTEP extends Solver {
         flowFraction[source] = 1.0;
 
         // Process nodes in topological order from source to destination
+        // Note: makeTopologicalOrdering uses post-order DFS, so destination is at index 0
+        // and source is at index nOrdering-1. We need to iterate in reverse.
         int nOrdering = shortestPaths.makeTopologicalOrdering(source, destination);
 
-        for (int i = 0; i < nOrdering; i++) {
+        for (int i = nOrdering - 1; i >= 0; i--) {
             int node = shortestPaths.topologicalOrdering[i];
             double nodeFlow = flowFraction[node];
 
@@ -423,28 +435,31 @@ public class SRTEP extends Solver {
     }
 
     /**
-     * Class to store the routing solution (selected path for each demand)
+     * Class to store the routing solution (selected path index for each demand)
      */
     private class Routing {
-        // selectedPath[src][dst] = the selected SRPath (or null if no path)
-        SRPath[][] selectedPath;
+        // selectedPathIndex[src][dst] = index of selected path in allPaths, or -1 if no path
+        int[][] selectedPathIndex;
         int nNodes;
-        Topology topology;
 
-        Routing(int nNodes, Topology topology) {
+        Routing(int nNodes) {
             this.nNodes = nNodes;
-            this.topology = topology;
-            this.selectedPath = new SRPath[nNodes][nNodes];
+            this.selectedPathIndex = new int[nNodes][nNodes];
+            // Initialize to -1 (no path)
+            for (int i = 0; i < nNodes; i++) {
+                for (int j = 0; j < nNodes; j++) {
+                    selectedPathIndex[i][j] = -1;
+                }
+            }
         }
 
         /**
          * Get the edge usage fraction for a flow from src to dst on a given edge
          */
         double getEdgeUsage(int src, int dst, int edge) {
-            SRPath path = selectedPath[src][dst];
-            if (path == null) return 0.0;
-            double[] edgeUsage = getPathEdgeUsage(path, topology);
-            return edgeUsage[edge];
+            int pathIdx = selectedPathIndex[src][dst];
+            if (pathIdx < 0) return 0.0;
+            return edgeUsage[pathIdx][edge];
         }
     }
 
@@ -452,7 +467,7 @@ public class SRTEP extends Solver {
      * Scales a demand matrix to achieve a target MLU
      */
     private Demands scaleMatrixToMLU(Topology topology, Demands originalMatrix, double targetMLU) {
-        Routing routing = new Routing(topology.nNodes, topology);
+        Routing routing = new Routing(topology.nNodes);
         double currentMLU = solveRouting(topology, Collections.singletonList(originalMatrix), routing);
 
         if (currentMLU <= 0) {
@@ -484,7 +499,7 @@ public class SRTEP extends Solver {
         List<Demands> allMatrices = new ArrayList<>();
         allMatrices.add(baseMatrix);
 
-        Routing currentRouting = new Routing(topology.nNodes, topology);
+        Routing currentRouting = new Routing(topology.nNodes);
         double currentMLU = solveRouting(topology, allMatrices, currentRouting);
 
         System.out.println("\n=== Generating Adversarial Matrices (SRTE) ===");
@@ -510,7 +525,7 @@ public class SRTEP extends Solver {
             adversarialMatrices.add(worstMatrix);
             allMatrices.add(worstMatrix.matrix);
 
-            currentRouting = new Routing(topology.nNodes, topology);
+            currentRouting = new Routing(topology.nNodes);
             double cumulativeOptimizedMLU = solveRouting(topology, allMatrices, currentRouting);
             worstMatrix.cumulativeOptimizedMLU = cumulativeOptimizedMLU;
 
@@ -822,9 +837,9 @@ public class SRTEP extends Solver {
 
                         // For each path available for this demand
                         for (int p : pathIndicesByPair.get(src).get(dst)) {
-                            double edgeUsage = getPathEdgeUsage(allPaths.get(p), topology)[edge];
-                            if (edgeUsage > 1e-10) {
-                                edgeLoad.addTerm(amount * edgeUsage, x[p]);
+                            double pathEdgeUsage = getPathEdgeUsage(p)[edge];
+                            if (pathEdgeUsage > 1e-10) {
+                                edgeLoad.addTerm(amount * pathEdgeUsage, x[p]);
                             }
                         }
                     }
@@ -855,7 +870,7 @@ public class SRTEP extends Solver {
                     double val = x[p].get(GRB.DoubleAttr.X);
                     if (val > 0.5) {
                         SRPath path = allPaths.get(p);
-                        outputRouting.selectedPath[path.source][path.destination] = path;
+                        outputRouting.selectedPathIndex[path.source][path.destination] = p;
                     }
                 }
             }

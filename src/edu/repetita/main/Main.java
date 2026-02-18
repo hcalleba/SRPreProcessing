@@ -5,6 +5,7 @@ import edu.repetita.io.IOConstants;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.mcf.MCF;
+import edu.repetita.solvers.sr.SRTEP;
 
 import java.util.*;
 
@@ -23,7 +24,7 @@ public class Main {
         ArrayList<String> descriptions = new ArrayList<>();
 
         options.addAll(Arrays.asList("h","doc","scenario","graph","demands","t","outpaths","inpaths",
-                "out","verbose","numAdversarialMatrices","maxPerturbedDemands","perturbationPercent"));
+                "out","verbose","numAdversarialMatrices","maxPerturbedDemands","perturbationPercent","srpaths"));
 
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",
@@ -42,7 +43,8 @@ public class Main {
                 "level of debugging (default 0, only results reported)",
                 "number of adversarial matrices to generate (default 10)",
                 "maximum number of demands that can be perturbed per matrix (default 5)",
-                "perturbation percentage as decimal (default 0.20 for 20%)"
+                "perturbation percentage as decimal (default 0.20 for 20%)",
+                "SR paths file to use for segment routing (default: none, required for SRTEP)"
         ));
 
         return "All options:\n" + RepetitaWriter.formatAsListTwoColumns(options, descriptions, "  -");
@@ -107,8 +109,9 @@ public class Main {
         double timeLimit = 1000000.0;
         int verboseLevel = 0;
         boolean help = false;
+        String srPathsFile = null;
 
-        // GRP solver parameters
+        // GRP solver default parameters
         int numAdversarialMatrices = 10;
         int maxPerturbedDemands = 5;
         double perturbationPercent = 0.20;
@@ -163,6 +166,10 @@ public class Main {
                     perturbationPercent = Double.parseDouble(args[++i]);
                     break;
 
+                case "-srpaths":
+                    srPathsFile = args[++i];
+                    break;
+
                 default:
                     printHelp("Unknown option " + args[i]);
             }
@@ -173,23 +180,27 @@ public class Main {
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
         if (demandsFilename.isEmpty()) printHelp("Needs an input demands file (or preprocess scenario)");
+        if (srPathsFile == null) printHelp("Needs an SR paths file for SRTEP (use -srpaths <file>)");
 
         /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
         setting.setDemandsFilename(demandsFilename);
 
-        MCF solver = new MCF();
+//        MCF solver = new MCF();
+//        solver.setNumAdversarialMatrices(numAdversarialMatrices);
+//        solver.setMaxPerturbedDemands(maxPerturbedDemands);
+//        solver.setPerturbationPercent(perturbationPercent);
+//        solver.solve(setting, (long) timeLimit * 1000);
+
+        SRTEP solver = new SRTEP();
         solver.setNumAdversarialMatrices(numAdversarialMatrices);
         solver.setMaxPerturbedDemands(maxPerturbedDemands);
         solver.setPerturbationPercent(perturbationPercent);
-        solver.solve(setting, (long) timeLimit * 1000);
-
-//        SRTEP solver = new SRTE();
-//        solver.setSRPathsFile("srpaths/2-SR/Aarnet.paths");
-//        solver.setExcludeAdjacencyPaths(false);
-//        solver.setNumAdversarialMatrices(10);
-//        solver.solve(setting, 60000); // 60 seconds timeout
+        solver.setSRPathsFile(srPathsFile);
+        solver.setExcludeAdjacencyPaths(false);
+        solver.setNumAdversarialMatrices(numAdversarialMatrices);
+        solver.solve(setting, (long) timeLimit * 1000); // use parsed timeLimit
 
     }
 }
