@@ -39,6 +39,7 @@ public class SRTEP extends Solver {
     private double perturbationPercent;
     private double demandLoadThreshold = 0.80;
     private boolean useDemandLoadThreshold = false;
+    private boolean minimizeAverageMLU = true;
 
     private final double TARGETMLU = 1.0;
 
@@ -104,6 +105,16 @@ public class SRTEP extends Solver {
      */
     public void setUseDemandLoadThreshold(boolean use) {
         this.useDemandLoadThreshold = use;
+    }
+
+    /**
+     * Enable or disable minimization of average MLU after finding optimal max MLU.
+     * When enabled, the solver performs a second optimization phase that minimizes
+     * the total (sum) MLU across all traffic matrices while keeping the maximum MLU
+     * at or below the optimal value found in the first phase.
+     */
+    public void setMinimizeAverageMLU(boolean minimize) {
+        this.minimizeAverageMLU = minimize;
     }
 
     @Override
@@ -526,7 +537,12 @@ public class SRTEP extends Solver {
             allMatrices.add(worstMatrix.matrix);
 
             currentRouting = new Routing(topology.nNodes);
-            double cumulativeOptimizedMLU = solveRouting(topology, allMatrices, currentRouting);
+
+            // On the last iteration, run Phase 2 if minimizeAverageMLU is enabled
+            boolean isLastIteration = (i == numMatrices - 1);
+            boolean runPhase2 = isLastIteration && minimizeAverageMLU && allMatrices.size() > 1;
+
+            double cumulativeOptimizedMLU = solveRouting(topology, allMatrices, currentRouting, runPhase2);
             worstMatrix.cumulativeOptimizedMLU = cumulativeOptimizedMLU;
 
             double individualMLU = solveRouting(topology, Collections.singletonList(worstMatrix.matrix), null);
@@ -757,6 +773,23 @@ public class SRTEP extends Solver {
      * @return The optimal MLU
      */
     private double solveRouting(Topology topology, List<Demands> demandsList, Routing outputRouting) {
+        return solveRouting(topology, demandsList, outputRouting, false);
+    }
+
+    /**
+     * Solves the SR routing problem using MIP.
+     * Selects exactly one path per (src, dst) pair to minimize maximum link utilization.
+     *
+     * If runPhase2 is true, performs a second phase that minimizes the
+     * sum of MLUs across all matrices while keeping max MLU at or below the optimal value.
+     *
+     * @param topology The network topology
+     * @param demandsList List of demand matrices to optimize for
+     * @param outputRouting If not null, the selected paths are stored here
+     * @param runPhase2 If true and there are multiple matrices, minimize average MLU after finding optimal max MLU
+     * @return The optimal MLU
+     */
+    private double solveRouting(Topology topology, List<Demands> demandsList, Routing outputRouting, boolean runPhase2) {
         try {
             GRBEnv env = new GRBEnv(true);
             env.set(GRB.IntParam.OutputFlag, 0);
@@ -769,6 +802,7 @@ public class SRTEP extends Solver {
 
             int nNodes = topology.nNodes;
             int nEdges = topology.nEdges;
+            int nMatrices = demandsList.size();
 
             // Prepare the list of all paths
             List<SRPath> allPaths = excludeAdjacencyPaths ? pathSet.getAllPathsWithoutAdjacency() : pathSet.getAllPaths();
@@ -795,6 +829,12 @@ public class SRTEP extends Solver {
 
             // Continuous variable for maximum utilization
             GRBVar uMax = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "uMax");
+
+            // Individual MLU variables for each matrix (needed for average MLU minimization)
+            GRBVar[] uMatrix = new GRBVar[nMatrices];
+            for (int m = 0; m < nMatrices; m++) {
+                uMatrix[m] = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "u_matrix_" + m);
+            }
 
             // Objective: minimize uMax
             GRBLinExpr objExpr = new GRBLinExpr();
@@ -823,7 +863,8 @@ public class SRTEP extends Solver {
             }
 
             // Capacity constraints for each demand matrix
-            for (int matrixIdx = 0; matrixIdx < demandsList.size(); matrixIdx++) {
+            // Each matrix has its own MLU variable uMatrix[matrixIdx]
+            for (int matrixIdx = 0; matrixIdx < nMatrices; matrixIdx++) {
                 Demands demands = demandsList.get(matrixIdx);
 
                 for (int edge = 0; edge < nEdges; edge++) {
@@ -844,14 +885,23 @@ public class SRTEP extends Solver {
                         }
                     }
 
-                    // edgeLoad <= capacity * uMax
-                    edgeLoad.addTerm(-topology.edgeCapacity[edge], uMax);
-                    model.addConstr(edgeLoad, GRB.LESS_EQUAL, 0.0,
+                    // edgeLoad <= capacity * uMatrix[matrixIdx] (individual matrix MLU)
+                    GRBLinExpr matrixCapacityConstr = new GRBLinExpr();
+                    matrixCapacityConstr.add(edgeLoad);
+                    matrixCapacityConstr.addTerm(-topology.edgeCapacity[edge], uMatrix[matrixIdx]);
+                    model.addConstr(matrixCapacityConstr, GRB.LESS_EQUAL, 0.0,
                             "capacity_" + edge + "_matrix_" + matrixIdx);
                 }
+
+                // Link individual matrix MLU to global max: uMatrix[matrixIdx] <= uMax
+                GRBLinExpr linkToMax = new GRBLinExpr();
+                linkToMax.addTerm(1.0, uMatrix[matrixIdx]);
+                linkToMax.addTerm(-1.0, uMax);
+                model.addConstr(linkToMax, GRB.LESS_EQUAL, 0.0,
+                        "uMatrix_leq_uMax_" + matrixIdx);
             }
 
-            // Solve
+            // Solve Phase 1: minimize max MLU
             model.optimize();
 
             int status = model.get(GRB.IntAttr.Status);
@@ -862,7 +912,44 @@ public class SRTEP extends Solver {
                 return Double.MAX_VALUE;
             }
 
-            double result = model.get(GRB.DoubleAttr.ObjVal);
+            double optimalMaxMLU = model.get(GRB.DoubleAttr.ObjVal);
+
+            // Phase 2: If enabled, minimize total/average MLU while keeping max MLU bounded
+            if (runPhase2 && nMatrices > 1) {
+                System.out.println("Phase 1 optimal max MLU: " + optimalMaxMLU);
+                System.out.println("Starting Phase 2: minimizing average MLU...");
+
+                // Add constraint: uMax <= optimalMaxMLU (with small tolerance for numerical stability)
+                GRBLinExpr maxMLUBound = new GRBLinExpr();
+                maxMLUBound.addTerm(1.0, uMax);
+                model.addConstr(maxMLUBound, GRB.LESS_EQUAL, optimalMaxMLU * 1.00001,
+                        "max_mlu_bound");
+
+                // Change objective to minimize sum of individual MLUs
+                GRBLinExpr avgObjExpr = new GRBLinExpr();
+                for (int m = 0; m < nMatrices; m++) {
+                    avgObjExpr.addTerm(1.0, uMatrix[m]);
+                }
+                model.setObjective(avgObjExpr, GRB.MINIMIZE);
+
+                // Set a looser optimality tolerance for Phase 2 to speed up solve
+                model.set(GRB.DoubleParam.MIPGap, 0.01); // 1% gap
+
+                // Solve Phase 2
+                model.optimize();
+
+                status = model.get(GRB.IntAttr.Status);
+                if (status != GRB.OPTIMAL && status != GRB.SUBOPTIMAL) {
+                    System.err.println("Phase 2: Gurobi did not find an optimal solution. Status: " + status);
+                    // Fall back to Phase 1 solution - we already have it
+                } else {
+                    double totalMLU = model.get(GRB.DoubleAttr.ObjVal);
+                    double avgMLU = totalMLU / nMatrices;
+                    System.out.println("Phase 2 total MLU: " + totalMLU + ", average MLU: " + avgMLU);
+                }
+            }
+
+            double result = optimalMaxMLU;
 
             // Extract the selected paths if requested
             if (outputRouting != null) {
