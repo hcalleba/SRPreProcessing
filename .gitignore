@@ -2,3 +2,5 @@
 lib/*.jar
 out/
 *.class
+srpaths/3-SR/Ion.paths
+srpaths/3-SR/UsCarrier.paths
