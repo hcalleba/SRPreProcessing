@@ -651,6 +651,37 @@ public class SRTEP extends Solver {
         return new AdversarialMatrix(worstMatrix, perturbedDemands, actualMLU);
     }
 
+    private AdversarialMatrix generateRandomMatrix(
+            Topology topology, Demands baseMatrix, Routing routing,
+            int maxPerturbedDemands, double perturbationPercent, Set<Integer> perturbableDemands) {
+
+        Demands randomMatrix = copyDemands(baseMatrix);
+
+        // Build list of candidate demand indices
+        List<Integer> candidates = new ArrayList<>();
+        for (int i = 0; i < baseMatrix.nDemands; i++) {
+            if (perturbableDemands == null || perturbableDemands.contains(i)) {
+                candidates.add(i);
+            }
+        }
+
+        // Shuffle and pick up to maxPerturbedDemands
+        Collections.shuffle(candidates);
+        int nbToPerturb = Math.min(maxPerturbedDemands, candidates.size());
+
+        Set<Integer> perturbedDemands = new HashSet<>();
+        for (int i = 0; i < nbToPerturb; i++) {
+            int demandIdx = candidates.get(i);
+            perturbedDemands.add(demandIdx);
+            randomMatrix.amount[demandIdx] = baseMatrix.amount[demandIdx] * (1.0 + perturbationPercent);
+        }
+
+        System.out.println("  Randomly perturbed " + nbToPerturb + " demands");
+
+        double actualMLU = calculateMLU(topology, randomMatrix, routing);
+        return new AdversarialMatrix(randomMatrix, perturbedDemands, actualMLU);
+    }
+
     private static class EdgeWorstCase {
         int edgeIdx;
         double mlu;
