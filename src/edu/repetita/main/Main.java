@@ -6,6 +6,7 @@ import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.mcf.MCF;
 import edu.repetita.solvers.sr.SRTEP;
+import edu.repetita.traffic.TrafficMatrixGenerator;
 
 import java.util.*;
 
@@ -112,7 +113,7 @@ public class Main {
         String srPathsFile = null;
 
         // GRP solver default parameters
-        int numAdversarialMatrices = 10;
+        int numGeneratedMatrices = 10;
         int maxPerturbedDemands = 5;
         double perturbationPercent = 0.20;
 
@@ -154,8 +155,8 @@ public class Main {
                     RepetitaWriter.setVerbose(verboseLevel);
                     break;
 
-                case "-numAdversarialMatrices":
-                    numAdversarialMatrices = Integer.parseInt(args[++i]);
+                case "-numGeneratedMatrices":
+                    numGeneratedMatrices = Integer.parseInt(args[++i]);
                     break;
 
                 case "-maxPerturbedDemands":
@@ -179,28 +180,32 @@ public class Main {
         /* check that the strictly necessary information has been provided in input */
         if (args.length < 1 || help) printHelp("");
         if (graphFilename == null) printHelp("Needs an input topology file");
-        if (demandsFilename.isEmpty()) printHelp("Needs an input demands file (or preprocess scenario)");
+        // if (demandsFilename.isEmpty()) printHelp("Needs an input demands file");
         if (srPathsFile == null) printHelp("Needs an SR paths file for SRTEP (use -srpaths <file>)");
 
         /* Set the settings according to command line parameters */
         Setting setting = new Setting();
         setting.setTopologyFilename(graphFilename);
-        setting.setDemandsFilename(demandsFilename);
+        if (!demandsFilename.isEmpty()) {
+            setting.setDemandsFilename(demandsFilename);
+        }
 
 //        MCF solver = new MCF();
-//        solver.setNumAdversarialMatrices(numAdversarialMatrices);
+//        solver.setNumAdversarialMatrices(numGeneratedMatrices);
 //        solver.setMaxPerturbedDemands(maxPerturbedDemands);
 //        solver.setPerturbationPercent(perturbationPercent);
 //        solver.solve(setting, (long) timeLimit * 1000);
 
-        SRTEP solver = new SRTEP();
-        solver.setNumAdversarialMatrices(numAdversarialMatrices);
-        solver.setMaxPerturbedDemands(maxPerturbedDemands);
-        solver.setPerturbationPercent(perturbationPercent);
-        solver.setSRPathsFile(srPathsFile);
-        solver.setExcludeAdjacencyPaths(false);
-        solver.setNumAdversarialMatrices(numAdversarialMatrices);
-        solver.solve(setting, (long) timeLimit * 1000); // use parsed timeLimit
+//        SRTEP solver = new SRTEP();
+//        solver.setNumAdversarialMatrices(numGeneratedMatrices);
+//        solver.setMaxPerturbedDemands(maxPerturbedDemands);
+//        solver.setPerturbationPercent(perturbationPercent);
+//        solver.setSRPathsFile(srPathsFile);
+//        solver.setExcludeAdjacencyPaths(false);
+//        solver.solve(setting, (long) timeLimit * 1000); // use parsed timeLimit
 
+        TrafficMatrixGenerator tmGenerator = new TrafficMatrixGenerator();
+        tmGenerator.setnumGeneratedMatrices(numGeneratedMatrices);
+        tmGenerator.generate(setting);
     }
 }

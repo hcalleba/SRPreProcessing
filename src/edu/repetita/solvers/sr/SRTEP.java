@@ -933,7 +933,7 @@ public class SRTEP extends Solver {
                 model.setObjective(avgObjExpr, GRB.MINIMIZE);
 
                 // Set a looser optimality tolerance for Phase 2 to speed up solve
-                model.set(GRB.DoubleParam.MIPGap, 0.01); // 1% gap
+                model.set(GRB.DoubleParam.MIPGap, 0.001); // 0.1% gap
 
                 // Solve Phase 2
                 model.optimize();
