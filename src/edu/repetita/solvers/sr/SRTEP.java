@@ -34,6 +34,9 @@ public class SRTEP {
     // List of all paths (for indexing into edgeUsage)
     private final List<SRPath> allPaths;
 
+    // pathIndicesByPair[src][dst] = list of path indices in allPaths for that OD pair
+    private final List<Integer>[][] pathIndicesByPair;
+
     /**
      * Result of a routing solve: the optimal MLU and the selected path for each (src, dst) pair.
      */
@@ -70,8 +73,22 @@ public class SRTEP {
 
         this.allPaths = excludeAdjacencyPaths ? pathSet.getAllPathsWithoutAdjacency() : pathSet.getAllPaths();
         this.edgeUsage = precomputeEdgeUsage();
+        this.pathIndicesByPair = buildPathIndicesByPair();
 
         System.out.println("Precomputed edge usage for " + allPaths.size() + " paths");
+    }
+
+    private List<Integer>[][] buildPathIndicesByPair() {
+        int nNodes = topology.nNodes;
+        List<Integer>[][] indices = new List[nNodes][nNodes];
+        for (int i = 0; i < nNodes; i++)
+            for (int j = 0; j < nNodes; j++)
+                indices[i][j] = new ArrayList<>();
+        for (int p = 0; p < allPaths.size(); p++) {
+            SRPath path = allPaths.get(p);
+            indices[path.source][path.destination].add(p);
+        }
+        return indices;
     }
 
     /** Returns the precomputed edge usage table: edgeUsage[pathIndex][edgeIndex]. */
@@ -115,19 +132,6 @@ public class SRTEP {
             int nMatrices = demandsList.size();
             int nPaths = allPaths.size();
 
-            // Build index mapping: for each (src, dst) pair, list of path indices
-            Map<Integer, Map<Integer, List<Integer>>> pathIndicesByPair = new HashMap<>();
-            for (int i = 0; i < nNodes; i++) {
-                pathIndicesByPair.put(i, new HashMap<>());
-                for (int j = 0; j < nNodes; j++) {
-                    pathIndicesByPair.get(i).put(j, new ArrayList<>());
-                }
-            }
-            for (int p = 0; p < nPaths; p++) {
-                SRPath path = allPaths.get(p);
-                pathIndicesByPair.get(path.source).get(path.destination).add(p);
-            }
-
             // Binary variables: x[p] = 1 if path p is selected
             GRBVar[] x = new GRBVar[nPaths];
             for (int p = 0; p < nPaths; p++) {
@@ -151,7 +155,7 @@ public class SRTEP {
                 for (int dst = 0; dst < nNodes; dst++) {
                     if (src == dst) continue;
 
-                    List<Integer> pathIndices = pathIndicesByPair.get(src).get(dst);
+                    List<Integer> pathIndices = pathIndicesByPair[src][dst];
                     if (pathIndices.isEmpty()) {
                         System.err.println("WARNING: No path available for pair (" + src + ", " + dst +
                                 "). Check SR paths file.");
@@ -179,7 +183,7 @@ public class SRTEP {
                         int dst = demands.dest[demandIdx];
                         double amount = demands.amount[demandIdx];
 
-                        for (int p : pathIndicesByPair.get(src).get(dst)) {
+                        for (int p : pathIndicesByPair[src][dst]) {
                             double pathEdgeUsage = edgeUsage[p][edge];
                             if (pathEdgeUsage > 1e-10) {
                                 edgeLoad.addTerm(amount * pathEdgeUsage, x[p]);

@@ -167,9 +167,7 @@ public class AdversarialSolver extends Solver {
         return scaledMatrix;
     }
 
-    // -------------------------------------------------------------------------
     // Iterative adversarial generation loop
-    // -------------------------------------------------------------------------
 
     /**
      * Builds an EdgeUsageFunction from SRTEP solve result.
