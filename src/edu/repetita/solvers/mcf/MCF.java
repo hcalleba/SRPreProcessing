@@ -63,6 +63,93 @@ public class MCF extends Solver {
         this.useDemandLoadThreshold = use;
     }
 
+    /**
+     * Solves the MCF problem for a single demand matrix and returns the optimal MLU.
+     * This is a convenience method usable from other solvers (e.g. for scaling).
+     */
+    public static double computeOptimalMLU(Topology topology, Demands demands) {
+        try {
+            GRBEnv env = new GRBEnv(true);
+            env.set(GRB.IntParam.OutputFlag, 0);
+            env.set(GRB.IntParam.LogToConsole, 0);
+            env.start();
+
+            GRBModel model = new GRBModel(env);
+            model.set(GRB.DoubleParam.TimeLimit, 300.0);
+            model.set(GRB.IntParam.Threads, 4);
+
+            int nNodes = topology.nNodes;
+            int nEdges = topology.nEdges;
+
+            GRBVar[][][] flowVars = new GRBVar[nNodes][nNodes][nEdges];
+            for (int src = 0; src < nNodes; src++) {
+                for (int dst = 0; dst < nNodes; dst++) {
+                    if (src == dst) continue;
+                    for (int edge = 0; edge < nEdges; edge++) {
+                        flowVars[src][dst][edge] = model.addVar(
+                                0.0, 1.0, 0.0, GRB.CONTINUOUS,
+                                "flow_" + src + "_" + dst + "_" + edge);
+                    }
+                }
+            }
+
+            GRBVar uMax = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "uMax");
+
+            GRBLinExpr objExpr = new GRBLinExpr();
+            objExpr.addTerm(1.0, uMax);
+            model.setObjective(objExpr, GRB.MINIMIZE);
+
+            for (int src = 0; src < nNodes; src++) {
+                for (int dst = 0; dst < nNodes; dst++) {
+                    if (src == dst) continue;
+                    for (int node = 0; node < nNodes; node++) {
+                        GRBLinExpr flowBalance = new GRBLinExpr();
+                        for (int edge = 0; edge < nEdges; edge++) {
+                            if (topology.edgeSrc[edge] == node)
+                                flowBalance.addTerm(1.0, flowVars[src][dst][edge]);
+                            if (topology.edgeDest[edge] == node)
+                                flowBalance.addTerm(-1.0, flowVars[src][dst][edge]);
+                        }
+                        double rhs = 0.0;
+                        if (node == src) rhs = 1.0;
+                        else if (node == dst) rhs = -1.0;
+                        model.addConstr(flowBalance, GRB.EQUAL, rhs,
+                                "fc_" + src + "_" + dst + "_" + node);
+                    }
+                }
+            }
+
+            for (int edge = 0; edge < nEdges; edge++) {
+                GRBLinExpr edgeLoad = new GRBLinExpr();
+                for (int d = 0; d < demands.nDemands; d++) {
+                    edgeLoad.addTerm(demands.amount[d],
+                            flowVars[demands.source[d]][demands.dest[d]][edge]);
+                }
+                edgeLoad.addTerm(-topology.edgeCapacity[edge], uMax);
+                model.addConstr(edgeLoad, GRB.LESS_EQUAL, 0.0, "cap_" + edge);
+            }
+
+            model.optimize();
+
+            int status = model.get(GRB.IntAttr.Status);
+            if (status != GRB.OPTIMAL && status != GRB.SUBOPTIMAL) {
+                System.err.println("MCF: no optimal solution. Status: " + status);
+                model.dispose();
+                env.dispose();
+                return Double.MAX_VALUE;
+            }
+
+            double result = model.get(GRB.DoubleAttr.ObjVal);
+            model.dispose();
+            env.dispose();
+            return result;
+
+        } catch (GRBException e) {
+            System.err.println("MCF Gurobi error: " + e.getErrorCode() + ". " + e.getMessage());
+            return Double.MAX_VALUE;
+        }
+    }
+
     @Override
     protected void setObjective() {
         objective = SOLVER_OBJVALUES_MINMAXLINKUSAGE;
