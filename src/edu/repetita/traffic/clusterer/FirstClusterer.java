@@ -1,4 +1,4 @@
-package edu.repetita.traffic;
+package edu.repetita.traffic.clusterer;
 
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
@@ -14,7 +14,7 @@ import java.util.Arrays;
  * 3. Assign every node to its nearest center (by OSPF shortest path)
  * 4. Merge degenerate clusters (fewer than 2 nodes total)
  */
-public class TopologyClusterer {
+public class FirstClusterer implements TopologyClusterer {
 
     private final Topology topology;
     private final int K;
@@ -26,11 +26,12 @@ public class TopologyClusterer {
     /** effective number of clusters after merging degenerate ones */
     private int effectiveK;
 
-    public TopologyClusterer(Topology topology, int K) {
+    public FirstClusterer(Topology topology, int K) {
         this.topology = topology;
         this.K = K;
     }
 
+    @Override
     public int[] run() {
         double[] score = computeNodeCapacityScores();
         int[][] dist = new ShortestPaths(topology).distance;
@@ -40,10 +41,12 @@ public class TopologyClusterer {
         return cluster;
     }
 
+    @Override
     public int getEffectiveK() {
         return effectiveK;
     }
 
+    @Override
     public int[] getCenters() {
         return centers;
     }
@@ -196,6 +199,7 @@ public class TopologyClusterer {
     }
 
     // Utility: print cluster summary
+    @Override
     public void printSummary() {
         int[] sizes = new int[effectiveK];
         double[] capacities = new double[effectiveK];
