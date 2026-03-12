@@ -29,7 +29,7 @@ public class Main {
 
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",
-                "only prints the README.txt file",
+                "only prints the README.md file",
                 "the scenario:\n" +
                         "\t'SRPP' for full preprocessing and solving;\n" +
                         "\t'full' for solving with all the possible paths;\n" +

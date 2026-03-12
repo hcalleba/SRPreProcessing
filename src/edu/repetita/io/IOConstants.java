@@ -4,7 +4,7 @@ import java.util.*;
 
 public class IOConstants {
     /* Filenames */
-    public final static String REPETITA_READMEFILE = "README.txt";
+    public final static String REPETITA_READMEFILE = "README.md";
     public static final String SOLVER_SPECSFILE = "external_solvers/solvers-specs.txt";
 
     /* Necessary CLI commands to run the external solvers */
