@@ -44,10 +44,13 @@ public class SRTEP {
         public final double mlu;
         /** selectedPathIndex[src][dst] = index of selected path in allPaths, or -1 if none */
         public final int[][] selectedPathIndex;
+        /** Per-matrix MLU values (from Phase 2 if run, otherwise from Phase 1). */
+        public final double[] perMatrixMLU;
 
-        public SolveResult(double mlu, int[][] selectedPathIndex) {
+        public SolveResult(double mlu, int[][] selectedPathIndex, double[] perMatrixMLU) {
             this.mlu = mlu;
             this.selectedPathIndex = selectedPathIndex;
+            this.perMatrixMLU = perMatrixMLU;
         }
     }
 
@@ -213,7 +216,7 @@ public class SRTEP {
                 System.err.println("Gurobi did not find an optimal solution. Status: " + status);
                 model.dispose();
                 env.dispose();
-                return new SolveResult(Double.MAX_VALUE, null);
+                return new SolveResult(Double.MAX_VALUE, null, null);
             }
 
             double optimalMaxMLU = model.get(GRB.DoubleAttr.ObjVal);
@@ -250,6 +253,12 @@ public class SRTEP {
                 }
             }
 
+            // Extract per-matrix MLU values
+            double[] perMatrixMLU = new double[nMatrices];
+            for (int m = 0; m < nMatrices; m++) {
+                perMatrixMLU[m] = uMatrix[m].get(GRB.DoubleAttr.X);
+            }
+
             // Extract selected paths
             int[][] selectedPathIndex = new int[nNodes][nNodes];
             for (int[] row : selectedPathIndex) Arrays.fill(row, -1);
@@ -265,11 +274,11 @@ public class SRTEP {
             model.dispose();
             env.dispose();
 
-            return new SolveResult(optimalMaxMLU, selectedPathIndex);
+            return new SolveResult(optimalMaxMLU, selectedPathIndex, perMatrixMLU);
 
         } catch (GRBException e) {
             System.err.println("Gurobi error: " + e.getErrorCode() + ". " + e.getMessage());
-            return new SolveResult(Double.MAX_VALUE, null);
+            return new SolveResult(Double.MAX_VALUE, null, null);
         }
     }
 

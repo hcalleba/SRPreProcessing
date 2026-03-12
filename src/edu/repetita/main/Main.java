@@ -6,6 +6,7 @@ import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
 import edu.repetita.solvers.mcf.MCF;
 import edu.repetita.solvers.sr.AdversarialSolver;
+import edu.repetita.solvers.sr.ClusterSolver;
 import edu.repetita.solvers.sr.SRTEP;
 import edu.repetita.traffic.TrafficMatrixGenerator;
 
@@ -118,22 +119,18 @@ public class Main {
             setting.setDemandsFilename(demandsFilename);
         }
 
-//        MCF solver = new MCF();
+//        AdversarialSolver solver = new AdversarialSolver();
 //        solver.setNumAdversarialMatrices(numGeneratedMatrices);
 //        solver.setMaxPerturbedDemands(maxPerturbedDemands);
 //        solver.setPerturbationPercent(perturbationPercent);
-//        solver.solve(setting, (long) timeLimit * 1000);
+//        solver.setSRPathsFile(srPathsFile);
+//        solver.setExcludeAdjacencyPaths(true);
+//        solver.solve(setting, (long) timelimit * 1000); // use parsed timeLimit
 
-        AdversarialSolver solver = new AdversarialSolver();
-        solver.setNumAdversarialMatrices(numGeneratedMatrices);
-        solver.setMaxPerturbedDemands(maxPerturbedDemands);
-        solver.setPerturbationPercent(perturbationPercent);
+        ClusterSolver solver = new ClusterSolver();
+        solver.setNumGeneratedMatrices(numGeneratedMatrices);
         solver.setSRPathsFile(srPathsFile);
-        solver.setExcludeAdjacencyPaths(false);
-        solver.solve(setting, (long) timelimit * 1000); // use parsed timeLimit
-
-//        TrafficMatrixGenerator tmGenerator = new TrafficMatrixGenerator();
-//        tmGenerator.setNumGeneratedMatrices(numGeneratedMatrices);
-//        tmGenerator.generate(setting);
+        solver.setExcludeAdjacencyPaths(true);
+        solver.solve(setting, (long) timelimit * 1000);
     }
 }

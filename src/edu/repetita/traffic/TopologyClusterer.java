@@ -80,6 +80,14 @@ public class TopologyClusterer {
                 numCandidates++;
             }
         }
+        // Print the names of all candidates
+        for (int pok = 0; pok < nNodes; pok++) {
+            int i = ranked[pok];
+            if (isCandidate[i]) {
+                System.out.printf("Candidate %d: node=%s, score=%.0f%n", pok, topology.nodeLabel[i], score[i]);
+            }
+        }
+
         // ensure at least K candidates
         if (numCandidates < K) {
             for (int i = 0; i < nNodes && numCandidates < K; i++) {
