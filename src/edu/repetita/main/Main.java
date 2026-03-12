@@ -205,7 +205,7 @@ public class Main {
 //        solver.solve(setting, (long) timeLimit * 1000); // use parsed timeLimit
 
         TrafficMatrixGenerator tmGenerator = new TrafficMatrixGenerator();
-        tmGenerator.setnumGeneratedMatrices(numGeneratedMatrices);
+        tmGenerator.setNumGeneratedMatrices(numGeneratedMatrices);
         tmGenerator.generate(setting);
     }
 }

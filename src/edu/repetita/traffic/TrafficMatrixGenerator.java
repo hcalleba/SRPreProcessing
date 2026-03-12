@@ -2,6 +2,7 @@ package edu.repetita.traffic;
 
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
+import edu.repetita.viz.TopologyViewer;
 
 import static java.lang.Math.*;
 
@@ -23,6 +24,7 @@ public class TrafficMatrixGenerator {
         int[] cluster = clusterer.run();
         int effectiveK = clusterer.getEffectiveK();
         clusterer.printSummary();
+        TopologyViewer.show(topology, cluster);
 
         // TODO generate base matrix using https://dl.acm.org/doi/10.1145/1070873.1070876
         BaseMatrixGenerator BaseGen = new BaseMatrixGenerator(topology, 1.0, 42L);
