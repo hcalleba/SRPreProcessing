@@ -5,6 +5,10 @@ import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Solver;
 import edu.repetita.core.Topology;
+import edu.repetita.solvers.common.AdversarialMatrix;
+import edu.repetita.solvers.common.DemandContribution;
+import edu.repetita.solvers.common.DemandLoad;
+import edu.repetita.solvers.common.EdgeWorstCase;
 import java.util.*;
 
 import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
@@ -102,27 +106,6 @@ public class MCF extends Solver {
         printAdversarialResults(adversarialMatrices);
 
         solveTime = System.currentTimeMillis() - startTime;
-    }
-
-    /**
-     * Classe pour stocker une matrice adversariale et ses métadonnées
-     */
-    private static class AdversarialMatrix {
-        Demands matrix;
-        Set<Integer> perturbedDemandIndices;
-        double nonOptimizedMLU; // MLU with old routing (non re-optimized)
-        double cumulativeOptimizedMLU; // MLU after re-optimizing for all matrices
-        double individualMLU; // MLU if optimized alone
-        double mluWithCumulativeRouting; // MLU of this matrix alone with cumulative routing
-
-        AdversarialMatrix(Demands matrix, Set<Integer> perturbedIndices, double nonOptimizedMLU) {
-            this.matrix = matrix;
-            this.perturbedDemandIndices = perturbedIndices;
-            this.nonOptimizedMLU = nonOptimizedMLU;
-            this.cumulativeOptimizedMLU = 0.0;
-            this.individualMLU = 0.0;
-            this.mluWithCumulativeRouting = 0.0;
-        }
     }
 
     /**
@@ -276,19 +259,6 @@ public class MCF extends Solver {
     }
 
     /**
-     * Helper class to store demand index and its load
-     */
-    private static class DemandLoad {
-        int demandIdx;
-        double load;
-
-        DemandLoad(int demandIdx, double load) {
-            this.demandIdx = demandIdx;
-            this.load = load;
-        }
-    }
-
-    /**
      * Génère la pire matrice de demandes étant donné un routage fixé
      */
     private AdversarialMatrix generateWorstMatrix(
@@ -330,21 +300,6 @@ public class MCF extends Solver {
         double actualMLU = calculateMLU(topology, worstMatrix, routing);
 
         return new AdversarialMatrix(worstMatrix, perturbedDemands, actualMLU);
-    }
-
-    /**
-     * Classe pour stocker le pire cas pour un arc
-     */
-    private static class EdgeWorstCase {
-        int edgeIdx;
-        double mlu;
-        List<Integer> demands; // triés par contribution décroissante
-
-        EdgeWorstCase(int edgeIdx, double mlu, List<Integer> demands) {
-            this.edgeIdx = edgeIdx;
-            this.mlu = mlu;
-            this.demands = demands;
-        }
     }
 
     /**
@@ -419,19 +374,6 @@ public class MCF extends Solver {
         }
 
         return worstCase;
-    }
-
-    /**
-     * Classe pour stocker la contribution d'une demande à un arc
-     */
-    private static class DemandContribution {
-        int demandIdx;
-        double contribution;
-
-        DemandContribution(int demandIdx, double contribution) {
-            this.demandIdx = demandIdx;
-            this.contribution = contribution;
-        }
     }
 
     /**

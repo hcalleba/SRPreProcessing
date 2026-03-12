@@ -8,6 +8,10 @@ import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.ShortestPaths;
 
+import edu.repetita.solvers.common.AdversarialMatrix;
+import edu.repetita.solvers.common.DemandContribution;
+import edu.repetita.solvers.common.DemandLoad;
+import edu.repetita.solvers.common.EdgeWorstCase;
 import java.io.IOException;
 import java.util.*;
 
@@ -425,27 +429,6 @@ public class SRTEP extends Solver {
     }
 
     /**
-     * Class to store an adversarial matrix and its metadata
-     */
-    private static class AdversarialMatrix {
-        Demands matrix;
-        Set<Integer> perturbedDemandIndices;
-        double nonOptimizedMLU;
-        double cumulativeOptimizedMLU;
-        double individualMLU;
-        double mluWithCumulativeRouting;
-
-        AdversarialMatrix(Demands matrix, Set<Integer> perturbedIndices, double nonOptimizedMLU) {
-            this.matrix = matrix;
-            this.perturbedDemandIndices = perturbedIndices;
-            this.nonOptimizedMLU = nonOptimizedMLU;
-            this.cumulativeOptimizedMLU = 0.0;
-            this.individualMLU = 0.0;
-            this.mluWithCumulativeRouting = 0.0;
-        }
-    }
-
-    /**
      * Class to store the routing solution (selected path index for each demand)
      */
     private class Routing {
@@ -602,16 +585,6 @@ public class SRTEP extends Solver {
         return perturbableDemands;
     }
 
-    private static class DemandLoad {
-        int demandIdx;
-        double load;
-
-        DemandLoad(int demandIdx, double load) {
-            this.demandIdx = demandIdx;
-            this.load = load;
-        }
-    }
-
     /**
      * Generates the worst-case demand matrix given a fixed routing
      */
@@ -682,18 +655,6 @@ public class SRTEP extends Solver {
         return new AdversarialMatrix(randomMatrix, perturbedDemands, actualMLU);
     }
 
-    private static class EdgeWorstCase {
-        int edgeIdx;
-        double mlu;
-        List<Integer> demands;
-
-        EdgeWorstCase(int edgeIdx, double mlu, List<Integer> demands) {
-            this.edgeIdx = edgeIdx;
-            this.mlu = mlu;
-            this.demands = demands;
-        }
-    }
-
     /**
      * Finds the edge that would give the worst MLU if we perturb demands using it
      */
@@ -759,16 +720,6 @@ public class SRTEP extends Solver {
         }
 
         return worstCase;
-    }
-
-    private static class DemandContribution {
-        int demandIdx;
-        double contribution;
-
-        DemandContribution(int demandIdx, double contribution) {
-            this.demandIdx = demandIdx;
-            this.contribution = contribution;
-        }
     }
 
     /**
