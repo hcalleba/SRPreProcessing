@@ -7,6 +7,7 @@ import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.ShortestPaths;
 import edu.repetita.traffic.Generator.TrafficMatrixGenerator;
+import edu.repetita.traffic.Generator.TrafficMatrixGeneratorClustering;
 import edu.repetita.traffic.Generator.TrafficMatrixGeneratorKarger;
 
 import java.io.IOException;
@@ -76,6 +77,7 @@ public class ClusterSolver extends Solver {
         Topology topology = setting.getTopology();
 
         TrafficMatrixGenerator tmGenerator = new TrafficMatrixGeneratorKarger();
+        tmGenerator.setBoostRange(2.5, 3.5);
         tmGenerator.setNumMatrices(numGeneratedMatrices);
         List<Demands> matrices = tmGenerator.generate(setting);
 
