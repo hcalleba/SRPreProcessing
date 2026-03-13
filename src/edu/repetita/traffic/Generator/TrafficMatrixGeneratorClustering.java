@@ -18,7 +18,6 @@ public class TrafficMatrixGeneratorClustering extends TrafficMatrixGenerator {
     private int numClusters;
 
     public TrafficMatrixGeneratorClustering() {
-        setBoostRange(2.0, 4.0);
     }
 
     @Override
@@ -51,18 +50,17 @@ public class TrafficMatrixGeneratorClustering extends TrafficMatrixGenerator {
             int srcCluster = clusterPairs.get(m)[0];
             int dstCluster = clusterPairs.get(m)[1];
 
-            double alpha = sampleBoost(rng);
             Demands boosted = new Demands(scaledBase);
             for (int d = 0; d < boosted.nDemands; d++) {
                 if (cluster[boosted.source[d]] == srcCluster &&
                     cluster[boosted.dest[d]]   == dstCluster) {
-                    boosted.amount[d] *= alpha;
+                    boosted.amount[d] *= sampleBoost(rng);
                 }
             }
 
             matrices.add(boosted);
-            System.out.printf("Generated matrix %d: boosted cluster %d -> %d (x%.2f)%n",
-                    m + 1, srcCluster, dstCluster, alpha);
+            System.out.printf("Generated matrix %d: boosted cluster %d -> %d%n",
+                    m + 1, srcCluster, dstCluster);
         }
 
         System.out.println("Total matrices generated: " + matrices.size() +

@@ -43,7 +43,6 @@ public class TrafficMatrixGeneratorIncompatible extends TrafficMatrixGenerator {
     private static final double NODE_CAP_FRACTION = 0.80;
 
     public TrafficMatrixGeneratorIncompatible() {
-        setBoostRange(5.0, 10.0);
     }
 
     @Override

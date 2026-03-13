@@ -152,6 +152,7 @@ public class SRTEP {
             GRBLinExpr objExpr = new GRBLinExpr();
             objExpr.addTerm(1.0, uMax);
             model.setObjective(objExpr, GRB.MINIMIZE);
+            model.set(GRB.DoubleParam.MIPGap, 0.0009765625); // 2**-10
 
             // Constraint: exactly one path per (src, dst) pair
             for (int src = 0; src < nNodes; src++) {
@@ -240,7 +241,7 @@ public class SRTEP {
                 model.setObjective(avgObjExpr, GRB.MINIMIZE);
 
                 // Set a looser optimality tolerance for Phase 2 to speed up solve
-                model.set(GRB.DoubleParam.MIPGap, 0.001); // 0.1% gap
+                model.set(GRB.DoubleParam.MIPGap, 0.00390625); // 2**-8
 
                 model.optimize();
 
