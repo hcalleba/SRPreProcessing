@@ -3,7 +3,6 @@ package edu.repetita.traffic.Generator;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.mcf.MCF;
 import edu.repetita.viz.TopologyViewer;
 
 import java.util.*;
@@ -20,37 +19,25 @@ import java.util.*;
  *   edges as the likely cut. The result is accepted only if the smaller partition
  *   holds at least MIN_BALANCE (20%) of all nodes — this prevents degenerate leaf cuts.
  * - Amplification: all cross-cut OD pairs (i∈S1↔j∈S2 in both directions)
- *   are multiplied by a random α ∈ [MIN_ALPHA, MAX_ALPHA].
+ *   are multiplied by α ~ Uniform[boostLow, boostHigh].
  * - Normalisation: the boosted matrix is re-scaled to MLU = 1 via MCF.
  *
  * Each call to {@link #generate} produces one base matrix plus numMatrices
  * cut-stressed matrices, each using an independently sampled Karger cut.
  */
+public class TrafficMatrixGeneratorKarger extends TrafficMatrixGenerator {
 
-public class TrafficMatrixGeneratorKarger {
-
-    private static final double TARGET_MLU  = 1.0;
-    /** Minimum fraction of nodes that must be on the smaller side of the cut. */
     private static final double MIN_BALANCE = 0.20;
-    /** Maximum number of Karger retries before giving up on a matrix. */
     private static final int    MAX_TRIALS  = 200;
-    private static final double MIN_ALPHA   = 1.5;
-    private static final double MAX_ALPHA   = 2.5;
 
-    private int  numMatrices = 15;
-    private long seed        = 42L;
-    private boolean visualizeBipartitions = false;
-
-    public void setNumMatrices(int n) { this.numMatrices = n; }
-    public void setSeed(long seed)    { this.seed = seed; }
-    public void setVisualizeBipartitions(boolean visualizeBipartitions) {
-        this.visualizeBipartitions = visualizeBipartitions;
+    public TrafficMatrixGeneratorKarger() {
+        setBoostRange(1.5, 2.5);
     }
 
+    @Override
     public List<Demands> generate(Setting setting) {
         Topology topology = setting.getTopology();
 
-        // Step 1: base matrix scaled to MLU = 1
         Demands base   = new BaseMatrixGenerator(topology, 1.0, seed).generate();
         Demands scaled = scaleToTargetMLU(topology, base, TARGET_MLU);
 
@@ -60,7 +47,6 @@ public class TrafficMatrixGeneratorKarger {
 
         for (int m = 0; m < numMatrices; m++) {
 
-            // Step 2: find a balanced bipartition via Karger's algorithm
             int[] assignment = findBalancedCut(topology, rng);
             if (assignment == null) {
                 System.err.printf("Warning: no balanced cut found for matrix %d after %d trials%n",
@@ -72,12 +58,11 @@ public class TrafficMatrixGeneratorKarger {
             for (int a : assignment) { if (a == 0) s1Size++; else s2Size++; }
             System.out.printf("Matrix %d: bipartition S1=%d nodes, S2=%d nodes%n",
                     m + 1, s1Size, s2Size);
-            if (visualizeBipartitions) {
+            if (visualize) {
                 TopologyViewer.show(topology, assignment);
             }
 
-            // Step 3: amplify all cross-cut demands (both directions)
-            double alpha    = MIN_ALPHA + rng.nextDouble() * (MAX_ALPHA - MIN_ALPHA);
+            double alpha    = sampleBoost(rng);
             Demands boosted = new Demands(scaled);
             int boostedCount = 0;
             for (int d = 0; d < boosted.nDemands; d++) {
@@ -96,8 +81,6 @@ public class TrafficMatrixGeneratorKarger {
                 + " (1 base + " + (matrices.size() - 1) + " Karger-cut)");
         return matrices;
     }
-
-    // Retry Karger until a balanced bipartition is found or MAX_TRIALS is exhausted.
 
     private int[] findBalancedCut(Topology topology, Random rng) {
         for (int trial = 0; trial < MAX_TRIALS; trial++) {
@@ -125,7 +108,6 @@ public class TrafficMatrixGeneratorKarger {
 
         while (superNodes > 2) {
 
-            // Sum weights of all cross-component edges (weight = 1/capacity)
             double totalWeight = 0.0;
             for (int e = 0; e < topology.nEdges; e++) {
                 int rs = findRoot(parent, topology.edgeSrc[e]);
@@ -135,9 +117,8 @@ public class TrafficMatrixGeneratorKarger {
                     totalWeight += (cap > 0) ? 1.0 / cap : 1.0;
                 }
             }
-            if (totalWeight <= 0) break; // graph is already disconnected
+            if (totalWeight <= 0) break;
 
-            // Sample one cross-component edge proportional to its weight
             double pick       = rng.nextDouble() * totalWeight;
             double cumulative = 0.0;
             int contractA = -1, contractB = -1;
@@ -159,7 +140,6 @@ public class TrafficMatrixGeneratorKarger {
             superNodes--;
         }
 
-        // Identify the two remaining super-node roots
         int root0 = -1, root1 = -1;
         for (int v = 0; v < n; v++) {
             int r = findRoot(parent, v);
@@ -169,20 +149,16 @@ public class TrafficMatrixGeneratorKarger {
                 root1 = r;
             }
         }
-        if (root1 == -1) return null; // degenerate: graph contracted to one component
+        if (root1 == -1) return null;
 
-        // Balance check: reject lopsided cuts
         if ((double) Math.min(sz[root0], sz[root1]) / n < MIN_BALANCE) return null;
 
-        // Build assignment
         int[] assignment = new int[n];
         for (int v = 0; v < n; v++) {
             assignment[v] = (findRoot(parent, v) == root0) ? 0 : 1;
         }
         return assignment;
     }
-
-    // Union-Find: find root with full path compression (two-pass)
 
     private int findRoot(int[] parent, int x) {
         int root = x;
@@ -195,30 +171,11 @@ public class TrafficMatrixGeneratorKarger {
         return root;
     }
 
-    // Union-Find: merge two components by rank, accumulating size in the new root
-
     private void mergeComponents(int[] parent, int[] rank, int[] sz, int a, int b) {
         if (a == b) return;
         if (rank[a] < rank[b]) { int tmp = a; a = b; b = tmp; }
         parent[b] = a;
         sz[a] += sz[b];
         if (rank[a] == rank[b]) rank[a]++;
-    }
-
-    // Scale demands so that MCF-optimal MLU equals targetMLU
-
-    private static Demands scaleToTargetMLU(Topology topology, Demands matrix, double targetMLU) {
-        double currentMLU = MCF.computeOptimalMLU(topology, matrix);
-        if (currentMLU <= 0) {
-            System.err.println("Warning: MCF MLU=" + currentMLU + ", returning unscaled matrix");
-            return matrix;
-        }
-        double factor = targetMLU / currentMLU;
-        Demands result = new Demands(matrix);
-        for (int i = 0; i < result.nDemands; i++) {
-            result.amount[i] = Math.floor(matrix.amount[i] * factor);
-        }
-        System.out.println("MCF_SCALE_FACTOR: " + factor);
-        return result;
     }
 }
