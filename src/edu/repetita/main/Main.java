@@ -18,6 +18,7 @@ public class Main {
         ArrayList<String> descriptions = new ArrayList<>();
 
         options.addAll(Arrays.asList("h","graph","demand","srpaths","TODO"));
+        options.addAll(Arrays.asList("h","graph","demand","srpaths","TODO"));
 
         descriptions.addAll(Arrays.asList(
                 "only prints this help message",

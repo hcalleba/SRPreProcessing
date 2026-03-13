@@ -6,7 +6,9 @@ import edu.repetita.core.Solver;
 import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.ShortestPaths;
-import edu.repetita.traffic.TrafficMatrixGeneratorClustering;
+import edu.repetita.traffic.Generator.TrafficMatrixGeneratorClustering;
+import edu.repetita.traffic.Generator.TrafficMatrixGeneratorIncompatible;
+import edu.repetita.traffic.Generator.TrafficMatrixGeneratorKarger;
 
 import java.io.IOException;
 import java.util.*;
@@ -75,9 +77,11 @@ public class ClusterSolver extends Solver {
         Topology topology = setting.getTopology();
 
         // Generate cluster-boosted demand matrices
-        TrafficMatrixGeneratorClustering tmGenerator = new TrafficMatrixGeneratorClustering();
-        tmGenerator.setNumGeneratedMatrices(numGeneratedMatrices);
-        tmGenerator.setBoostFactor(boostFactor);
+//        TrafficMatrixGeneratorClustering tmGenerator = new TrafficMatrixGeneratorClustering();
+//        tmGenerator.setBoostFactor(boostFactor);
+//        TrafficMatrixGeneratorIncompatible tmGenerator = new TrafficMatrixGeneratorIncompatible();
+        TrafficMatrixGeneratorKarger tmGenerator = new TrafficMatrixGeneratorKarger();
+        tmGenerator.setNumMatrices(numGeneratedMatrices);
         List<Demands> matrices = tmGenerator.generate(setting);
 
         if (matrices.isEmpty()) {

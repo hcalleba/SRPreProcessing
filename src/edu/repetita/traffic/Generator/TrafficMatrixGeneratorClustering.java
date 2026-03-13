@@ -1,4 +1,4 @@
-package edu.repetita.traffic;
+package edu.repetita.traffic.Generator;
 
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
@@ -16,6 +16,7 @@ import static java.lang.Math.*;
 public class TrafficMatrixGeneratorClustering {
     private int numGeneratedMatrices;
     private int numClusters;
+    private boolean visualizeClusters = true;
 
     private static final double TARGET_MLU = 1.0;
     private double boostFactor = 2.0;
@@ -26,6 +27,10 @@ public class TrafficMatrixGeneratorClustering {
 
     public void setBoostFactor(double boostFactor) {
         this.boostFactor = boostFactor;
+    }
+
+    public void setVisualizeClusters(boolean visualizeClusters) {
+        this.visualizeClusters = visualizeClusters;
     }
 
     public List<Demands> generate(Setting setting) {
@@ -39,8 +44,11 @@ public class TrafficMatrixGeneratorClustering {
         int effectiveK = clusterer.getEffectiveK();
         clusterer.printSummary();
 
-        // Uncomment to visualize clusters
-        TopologyViewer.show(topology, cluster);
+        if (visualizeClusters) {
+            System.out.println("Visualizing full clustering");
+            TopologyViewer.show(topology, cluster);
+            showEachCluster(topology, cluster, effectiveK);
+        }
 
         // Generate base matrix using https://dl.acm.org/doi/10.1145/1070873.1070876
         BaseMatrixGenerator baseGen = new BaseMatrixGenerator(topology, 1.0, 42L);
@@ -107,5 +115,16 @@ public class TrafficMatrixGeneratorClustering {
 
         System.out.println("MCF_SCALE_FACTOR: " + scaleFactor);
         return scaled;
+    }
+
+    private static void showEachCluster(Topology topology, int[] cluster, int effectiveK) {
+        for (int k = 0; k < effectiveK; k++) {
+            int[] focus = new int[topology.nNodes];
+            for (int v = 0; v < topology.nNodes; v++) {
+                focus[v] = (cluster[v] == k) ? 0 : -1;
+            }
+            System.out.printf("Visualizing cluster %d\n", k);
+            TopologyViewer.show(topology, focus);
+        }
     }
 }

@@ -32,9 +32,7 @@ public class AdversarialMatrices {
         double getEdgeUsage(int src, int dst, int edge);
     }
 
-    // -------------------------------------------------------------------------
     // Adversarial matrix generation
-    // -------------------------------------------------------------------------
 
     /**
      * Generates a worst-case demand matrix given a fixed routing.
@@ -116,9 +114,7 @@ public class AdversarialMatrices {
         return new AdversarialMatrix(randomMatrix, perturbedDemands, actualMLU);
     }
 
-    // -------------------------------------------------------------------------
     // MLU computation
-    // -------------------------------------------------------------------------
 
     /**
      * Calculates the Maximum Link Utilization of a demand matrix with a given routing.
@@ -143,9 +139,7 @@ public class AdversarialMatrices {
         return maxUtilization;
     }
 
-    // -------------------------------------------------------------------------
     // Perturbable demand selection
-    // -------------------------------------------------------------------------
 
     /**
      * Computes the set of demand indices allowed to be perturbed based on a load threshold.
@@ -183,9 +177,7 @@ public class AdversarialMatrices {
         return perturbableDemands;
     }
 
-    // -------------------------------------------------------------------------
     // Utility
-    // -------------------------------------------------------------------------
 
     /** Creates a deep copy of a demand matrix. */
     public static Demands copyDemands(Demands original) {
@@ -233,9 +225,7 @@ public class AdversarialMatrices {
         }
     }
 
-    // -------------------------------------------------------------------------
     // Private helpers
-    // -------------------------------------------------------------------------
 
     /**
      * Finds the edge whose demand perturbation would yield the worst MLU.

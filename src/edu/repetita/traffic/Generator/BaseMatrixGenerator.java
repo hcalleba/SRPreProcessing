@@ -1,4 +1,4 @@
-package edu.repetita.traffic;
+package edu.repetita.traffic.Generator;
 
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
