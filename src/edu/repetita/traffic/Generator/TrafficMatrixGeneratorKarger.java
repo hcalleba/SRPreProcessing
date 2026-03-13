@@ -29,7 +29,7 @@ import java.util.*;
 public class TrafficMatrixGeneratorKarger extends TrafficMatrixGenerator {
 
     private static final double MIN_BALANCE = 0.20;
-    private static final int    MAX_TRIALS  = 500;
+    private static final int    MAX_TRIALS  = 10000;
 
     public TrafficMatrixGeneratorKarger() {
     }
