@@ -33,12 +33,6 @@ public class TrafficMatrixGeneratorClustering extends TrafficMatrixGenerator {
         int effectiveK = clusterer.getEffectiveK();
         clusterer.printSummary();
 
-        if (visualize) {
-            System.out.println("Visualizing full clustering");
-            TopologyViewer.show(topology, cluster);
-            showEachCluster(topology, cluster, effectiveK);
-        }
-
         Demands baseMatrix = new BaseMatrixGenerator(topology, 1.0, seed).generate();
         Demands scaledBase = scaleToTargetMLU(topology, baseMatrix, TARGET_MLU);
 
@@ -73,17 +67,11 @@ public class TrafficMatrixGeneratorClustering extends TrafficMatrixGenerator {
 
         System.out.println("Total matrices generated: " + matrices.size() +
                 " (1 base + " + numToGenerate + " cluster-boosted)");
-        return matrices;
-    }
 
-    private static void showEachCluster(Topology topology, int[] cluster, int effectiveK) {
-        for (int k = 0; k < effectiveK; k++) {
-            int[] focus = new int[topology.nNodes];
-            for (int v = 0; v < topology.nNodes; v++) {
-                focus[v] = (cluster[v] == k) ? 0 : -1;
-            }
-            System.out.printf("Visualizing cluster %d%n", k);
-            TopologyViewer.show(topology, focus);
+        if (visualize) {
+            TopologyViewer.show(topology, cluster);
         }
+
+        return matrices;
     }
 }
