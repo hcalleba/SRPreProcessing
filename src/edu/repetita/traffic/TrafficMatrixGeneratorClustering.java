@@ -4,8 +4,7 @@ import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
 import edu.repetita.solvers.mcf.MCF;
-import edu.repetita.traffic.clusterer.FirstClusterer;
-import edu.repetita.traffic.clusterer.SecondClusterer;
+import edu.repetita.traffic.clusterer.ThirdClusterer;
 import edu.repetita.traffic.clusterer.TopologyClusterer;
 import edu.repetita.viz.TopologyViewer;
 
@@ -14,7 +13,7 @@ import java.util.List;
 
 import static java.lang.Math.*;
 
-public class TrafficMatrixGenerator {
+public class TrafficMatrixGeneratorClustering {
     private int numGeneratedMatrices;
     private int numClusters;
 
@@ -35,7 +34,7 @@ public class TrafficMatrixGenerator {
         numClusters = max(4, (int) floor(sqrt(topology.nNodes / 2)));
 
         // Cluster nodes
-        TopologyClusterer clusterer = new SecondClusterer(topology, numClusters);
+        TopologyClusterer clusterer = new ThirdClusterer(topology, numClusters);
         int[] cluster = clusterer.run();
         int effectiveK = clusterer.getEffectiveK();
         clusterer.printSummary();

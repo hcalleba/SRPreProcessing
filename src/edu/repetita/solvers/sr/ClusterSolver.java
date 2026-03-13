@@ -6,7 +6,7 @@ import edu.repetita.core.Solver;
 import edu.repetita.core.Topology;
 import edu.repetita.io.RepetitaParser;
 import edu.repetita.paths.ShortestPaths;
-import edu.repetita.traffic.TrafficMatrixGenerator;
+import edu.repetita.traffic.TrafficMatrixGeneratorClustering;
 
 import java.io.IOException;
 import java.util.*;
@@ -17,7 +17,7 @@ import static edu.repetita.io.IOConstants.SOLVER_OBJVALUES_MINMAXLINKUSAGE;
  * Cluster-based traffic engineering solver.
  *
  * Takes a set of demand matrices (typically one base + several cluster-boosted variants
- * from {@link edu.repetita.traffic.TrafficMatrixGenerator}) and:
+ * from {@link TrafficMatrixGeneratorClustering}) and:
  *
  * 1. Solves the SRTEP individually for each matrix → individual best MLU
  * 2. Solves the SRTEP jointly for all matrices (with optional Phase 2) → joint MLU
@@ -75,7 +75,7 @@ public class ClusterSolver extends Solver {
         Topology topology = setting.getTopology();
 
         // Generate cluster-boosted demand matrices
-        TrafficMatrixGenerator tmGenerator = new TrafficMatrixGenerator();
+        TrafficMatrixGeneratorClustering tmGenerator = new TrafficMatrixGeneratorClustering();
         tmGenerator.setNumGeneratedMatrices(numGeneratedMatrices);
         tmGenerator.setBoostFactor(boostFactor);
         List<Demands> matrices = tmGenerator.generate(setting);

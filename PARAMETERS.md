@@ -4,7 +4,7 @@ The GRP solver now supports runtime configuration of adversarial matrix generati
 
 ## Available Parameters
 
-### `-numAdversarialMatrices <value>`
+### `-numGeneratedMatrices <value>`
 - **Description**: Number of adversarial matrices to generate
 - **Type**: Integer
 - **Default**: 10

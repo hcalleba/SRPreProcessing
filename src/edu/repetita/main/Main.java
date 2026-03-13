@@ -1,14 +1,8 @@
 package edu.repetita.main;
 
 import edu.repetita.core.Setting;
-import edu.repetita.io.IOConstants;
-import edu.repetita.io.RepetitaParser;
 import edu.repetita.io.RepetitaWriter;
-import edu.repetita.solvers.mcf.MCF;
-import edu.repetita.solvers.sr.AdversarialSolver;
 import edu.repetita.solvers.sr.ClusterSolver;
-import edu.repetita.solvers.sr.SRTEP;
-import edu.repetita.traffic.TrafficMatrixGenerator;
 
 import java.util.*;
 
