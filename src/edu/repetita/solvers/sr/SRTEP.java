@@ -122,8 +122,8 @@ public class SRTEP {
     public SolveResult solveRouting(List<Demands> demandsList, boolean runPhase2) {
         try {
             GRBEnv env = new GRBEnv(true);
-            env.set(GRB.IntParam.OutputFlag, 0);
             env.set(GRB.IntParam.LogToConsole, 0);
+            env.set(GRB.StringParam.LogFile, "out/gurobi.log");
             env.start();
 
             GRBModel model = new GRBModel(env);

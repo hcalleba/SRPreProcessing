@@ -82,10 +82,7 @@ public class TrafficMatrixGeneratorClustering {
                     boosted.amount[d] *= boostFactor;
                 }
             }
-
-            // Re-scale so the boosted matrix also has target MLU
-//            Demands scaledBoosted = scaleToTargetMLU(topology, boosted, TARGET_MLU);
-//            matrices.add(scaledBoosted);
+            
             matrices.add(boosted);
 
             System.out.printf("Generated matrix %d: boosted cluster %d -> %d%n",

@@ -119,34 +119,47 @@ public class ClusterSolver extends Solver {
             System.out.printf("Matrix %d: individual MLU = %.6f%n", i, individualMLU[i]);
         }
 
-        // Step 2: solve jointly for all matrices
-        System.out.println("\n=== Joint SRTEP Solve ===");
-        SRTEP.SolveResult jointResult = srtep.solveRouting(matrices, true);
+        // Step 2: solve jointly for stress matrices only — the base matrix (index 0) is excluded
+        // because any routing good enough for the stressed variants dominates it by construction.
+        List<Demands> stressMatrices = matrices.subList(1, nMatrices);
+        int nStress = stressMatrices.size();
+        System.out.println("\n=== Joint SRTEP Solve (base matrix excluded) ===");
+        SRTEP.SolveResult jointResult = srtep.solveRouting(stressMatrices, true);
         double jointMLU = jointResult.mlu;
         System.out.println("Joint max MLU: " + jointMLU);
 
-        // Step 3: per-matrix MLU values from the model (Phase 2 if run, else Phase 1)
+        // Step 3: per-matrix MLU values from the joint model (indices correspond to stressMatrices)
         double[] mluUnderJointRouting = jointResult.perMatrixMLU;
 
         double sumMLU = 0.0;
-        for (double v : mluUnderJointRouting) sumMLU += v;
-        double avgMLU = sumMLU / nMatrices;
+        double maxMLU = 0.0;
+        for (double v : mluUnderJointRouting) {
+            sumMLU += v;
+            if (v > maxMLU) maxMLU = v;
+        }
+        double avgMLU = sumMLU / nStress;
 
         // Step 4: print summary table
         System.out.println("\n=== Cluster Solver Results ===");
         System.out.printf("%-10s %-20s %-25s %-15s%n",
                 "Matrix", "Individual MLU", "MLU w/ Joint Routing", "Degradation");
         System.out.println("-".repeat(70));
-        for (int i = 0; i < nMatrices; i++) {
-            double degradation = mluUnderJointRouting[i] / individualMLU[i];
+
+        // Base row: not part of the joint solve, so no joint MLU available
+        System.out.printf("%-10s %-20.6f %-25s %-15s%n",
+                "Base", individualMLU[0], "(excluded)", "—");
+
+        // Stress matrix rows (original indices 1..nMatrices-1, joint indices 0..nStress-1)
+        for (int i = 0; i < nStress; i++) {
+            double degradation = mluUnderJointRouting[i] / individualMLU[i + 1];
             System.out.printf("%-10s %-20.6f %-25.6f %-15.4f%n",
-                    (i == 0 ? "Base" : "C_" + i),
-                    individualMLU[i],
+                    "C_" + (i + 1),
+                    individualMLU[i + 1],
                     mluUnderJointRouting[i],
                     degradation);
         }
         System.out.println("-".repeat(70));
-        System.out.printf("%-10s %-20.6f (max)  %-25.6f (avg)%n", "Joint", jointMLU, avgMLU);
+        System.out.printf("%-10s %-20.6f (max)  %-25.6f (avg)%n", "Joint", maxMLU, avgMLU);
 
         solveTime = System.currentTimeMillis() - startTime;
     }

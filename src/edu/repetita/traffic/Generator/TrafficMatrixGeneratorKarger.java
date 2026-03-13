@@ -34,8 +34,8 @@ public class TrafficMatrixGeneratorKarger {
     private static final double MIN_BALANCE = 0.20;
     /** Maximum number of Karger retries before giving up on a matrix. */
     private static final int    MAX_TRIALS  = 200;
-    private static final double MIN_ALPHA   = 5.0;
-    private static final double MAX_ALPHA   = 10.0;
+    private static final double MIN_ALPHA   = 1.5;
+    private static final double MAX_ALPHA   = 2.5;
 
     private int  numMatrices = 15;
     private long seed        = 42L;
@@ -88,8 +88,7 @@ public class TrafficMatrixGeneratorKarger {
             }
             System.out.printf("  Amplified %d cross-cut demands by x%.2f%n", boostedCount, alpha);
 
-            // Step 4: re-scale to MLU = 1
-            matrices.add(scaleToTargetMLU(topology, boosted, TARGET_MLU));
+            matrices.add(boosted);
             System.out.println("Generated Karger matrix " + (m + 1));
         }
 
