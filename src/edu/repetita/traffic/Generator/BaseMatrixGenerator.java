@@ -60,16 +60,16 @@ public class BaseMatrixGenerator {
 
         // Build Demands
         String[] labels  = new String[nPairs];
-        int[]    sources = new int[nPairs];
-        int[]    dests   = new int[nPairs];
+        int[] sources = new int[nPairs];
+        int[] dests   = new int[nPairs];
         double[] amounts = new double[nPairs];
 
         for (int i = 0; i < nPairs; i++) {
             int src = rankedPairs[i][0];
             int dst = rankedPairs[i][1];
-            labels[i]  = "d_" + src + "_" + dst;
+            labels[i] = "d_" + src + "_" + dst;
             sources[i] = src;
-            dests[i]   = dst;
+            dests[i] = dst;
             amounts[i] = sampledValues[i];
         }
 
@@ -102,7 +102,7 @@ public class BaseMatrixGenerator {
             int src = topology.edgeSrc[e];
             int dst = topology.edgeDest[e];
             fanOut[src] += topology.edgeCapacity[e];
-            fanIn[dst]  += topology.edgeCapacity[e];
+            fanIn[dst] += topology.edgeCapacity[e];
             degree[src]++;
             degree[dst]++;
         }
@@ -110,8 +110,8 @@ public class BaseMatrixGenerator {
         // collect all pairs
         int nPairs = n * (n - 1);
         int[][] pairs = new int[nPairs][2];
-        double[] m1   = new double[nPairs];
-        int[]    m2   = new int[nPairs];
+        double[] m1 = new double[nPairs];
+        int[] m2 = new int[nPairs];
 
         int idx = 0;
         for (int src = 0; src < n; src++) {
