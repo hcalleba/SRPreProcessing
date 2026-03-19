@@ -3,7 +3,7 @@ package edu.repetita.traffic.Generator;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Setting;
 import edu.repetita.core.Topology;
-import edu.repetita.solvers.mcf.MCF;
+import edu.repetita.solvers.mcf.MCFAggregated;
 
 import java.util.List;
 import java.util.Random;
@@ -28,15 +28,23 @@ public abstract class TrafficMatrixGenerator {
     protected static final double TARGET_MLU = 1.0;
 
     protected int     numMatrices = 15;
-    protected long    seed        = 42L;
-    protected double  boostLow    = 2.0;
-    protected double  boostHigh   = 5.0;
-    protected boolean visualize   = true;
+    protected long    seed = 42L;
+    protected double  boostLow = 1.0;
+    protected double  boostHigh = 1.0;
+    protected boolean visualize = true;
 
-    public void setNumMatrices(int n)                    { this.numMatrices = n; }
-    public void setSeed(long seed)                       { this.seed = seed; }
-    public void setBoostRange(double low, double high)   { this.boostLow = low; this.boostHigh = high; }
-    public void setVisualize(boolean v)                  { this.visualize = v; }
+    public void setNumMatrices(int n){
+        this.numMatrices = n;
+    }
+    public void setSeed(long seed){
+        this.seed = seed;
+    }
+    public void setBoostRange(double low, double high){
+        this.boostLow = low; this.boostHigh = high;
+    }
+    public void setVisualize(boolean v){
+        this.visualize = v;
+    }
 
     /** Generates and returns the list of demand matrices (base matrix first). */
     public abstract List<Demands> generate(Setting setting);
@@ -48,7 +56,7 @@ public abstract class TrafficMatrixGenerator {
 
     /** Scales demands so that the MCF-optimal MLU equals {@code targetMLU}. */
     protected static Demands scaleToTargetMLU(Topology topology, Demands matrix, double targetMLU) {
-        double currentMLU = MCF.computeOptimalMLU(topology, matrix);
+        double currentMLU = MCFAggregated.computeOptimalMLU(topology, matrix);
         if (currentMLU <= 0) {
             System.err.println("Warning: MCF MLU=" + currentMLU + ", returning unscaled matrix");
             return matrix;

@@ -109,8 +109,8 @@ public class TrafficMatrixGeneratorIncompatible extends TrafficMatrixGenerator {
 
             Demands boosted = new Demands(scaled);
             for (int[] pair : chosen) {
-                String key   = odKey(pair[0], pair[1]);
-                double cap   = alphaCaps.getOrDefault(key, boostHigh);
+                String key = odKey(pair[0], pair[1]);
+                double cap = alphaCaps.getOrDefault(key, boostHigh);
                 double alpha = Math.min(sampleBoost(rng), cap);
                 boosted.amount[pair[2]] *= alpha;
                 System.out.printf("  Matrix %d: amplify (%s->%s) x%.2f (cap=%.1f)%n",

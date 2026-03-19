@@ -36,7 +36,6 @@ public class ClusterSolver extends Solver {
 
     // TrafficMatrixGenerator parameters
     private int numGeneratedMatrices = 10;
-    private double boostFactor = 2.0;
 
     public void setSRPathsFile(String filename) {
         this.srPathsFile = filename;
@@ -48,10 +47,6 @@ public class ClusterSolver extends Solver {
 
     public void setNumGeneratedMatrices(int num) {
         this.numGeneratedMatrices = num;
-    }
-
-    public void setBoostFactor(double factor) {
-        this.boostFactor = factor;
     }
 
     @Override
@@ -77,7 +72,7 @@ public class ClusterSolver extends Solver {
         Topology topology = setting.getTopology();
 
         TrafficMatrixGenerator tmGenerator = new TrafficMatrixGeneratorKarger();
-        tmGenerator.setBoostRange(2.5, 3.5);
+        tmGenerator.setBoostRange(1.5, 3.5);
         tmGenerator.setNumMatrices(numGeneratedMatrices);
         List<Demands> matrices = tmGenerator.generate(setting);
 

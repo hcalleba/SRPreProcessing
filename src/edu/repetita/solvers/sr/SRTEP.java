@@ -4,7 +4,7 @@ import com.gurobi.gurobi.*;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
 import edu.repetita.paths.ShortestPaths;
-import edu.repetita.solvers.mcf.MCF;
+import edu.repetita.solvers.mcf.MCFAggregated;
 
 import java.util.*;
 
@@ -287,10 +287,10 @@ public class SRTEP {
 
     /**
      * Solves the MCF problem to get the optimal MLU (lower bound, used for scaling).
-     * Delegates to {@link MCF#computeOptimalMLU(Topology, Demands)}.
+     * Delegates to {@link MCFAggregated#computeOptimalMLU(Topology, Demands)}.
      */
     public double solveMCF(Demands demands) {
-        return MCF.computeOptimalMLU(topology, demands);
+        return MCFAggregated.computeOptimalMLU(topology, demands);
     }
 
     // Edge usage precomputation (ECMP)

@@ -3,10 +3,9 @@ package edu.repetita.solvers.mcf;
 import com.gurobi.gurobi.*;
 import edu.repetita.core.Demands;
 import edu.repetita.core.Topology;
-import java.util.*;
 
 
-public class MCF {
+public class MCFAggregated {
 
     /**
      * Solves the MCF problem for a single demand matrix and returns the optimal MLU.
