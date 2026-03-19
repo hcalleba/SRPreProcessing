@@ -34,6 +34,7 @@ public class TrafficMatrixGeneratorClustering extends TrafficMatrixGenerator {
 
         Demands baseMatrix = new BaseMatrixGenerator(topology, 1.0, seed).generate();
         Demands scaledBase = scaleToTargetMLU(topology, baseMatrix, TARGET_MLU);
+        if (inflate) scaledBase = inflateUncongested(topology, scaledBase);
 
         List<Demands> matrices = new ArrayList<>();
         matrices.add(scaledBase);

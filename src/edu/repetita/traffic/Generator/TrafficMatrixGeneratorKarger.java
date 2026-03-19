@@ -40,6 +40,7 @@ public class TrafficMatrixGeneratorKarger extends TrafficMatrixGenerator {
 
         Demands base   = new BaseMatrixGenerator(topology, 1.0, seed).generate();
         Demands scaled = scaleToTargetMLU(topology, base, TARGET_MLU);
+        if (inflate) scaled = inflateUncongested(topology, scaled);
 
         Random rng = new Random(seed + 1);
         List<Demands> matrices = new ArrayList<>();

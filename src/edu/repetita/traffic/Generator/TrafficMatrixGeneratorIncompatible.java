@@ -52,6 +52,7 @@ public class TrafficMatrixGeneratorIncompatible extends TrafficMatrixGenerator {
 
         Demands base   = new BaseMatrixGenerator(topology, 1.0, seed).generate();
         Demands scaled = scaleToTargetMLU(topology, base, TARGET_MLU);
+        if (inflate) scaled = inflateUncongested(topology, scaled);
 
         double[] outCap = computeOutCap(topology);
         double[] inCap  = computeInCap(topology);

@@ -74,6 +74,7 @@ public class ClusterSolver extends Solver {
         TrafficMatrixGenerator tmGenerator = new TrafficMatrixGeneratorKarger();
         tmGenerator.setBoostRange(1.5, 3.5);
         tmGenerator.setNumMatrices(numGeneratedMatrices);
+        tmGenerator.setInflate(true);
         List<Demands> matrices = tmGenerator.generate(setting);
 
         if (matrices.isEmpty()) {
